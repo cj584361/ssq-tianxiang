@@ -1008,24 +1008,6 @@
     </div>
   </section>
 
-  <!-- ============ 宜忌 ============ -->
-  <section class="card">
-    <div class="card-head">
-      <div class="card-title">今日宜忌</div>
-      <div class="card-note" id="yijiSource">依十二建星</div>
-    </div>
-    <div class="yiji">
-      <div class="yiji-row">
-        <div class="yiji-tag yiji-tag--yi">宜</div>
-        <div class="yiji-items" id="yiItems"></div>
-      </div>
-      <div class="yiji-row">
-        <div class="yiji-tag yiji-tag--ji">忌</div>
-        <div class="yiji-items" id="jiItems"></div>
-      </div>
-    </div>
-  </section>
-
   <!-- ============ 今日号码 ============ -->
   <section class="card">
     <div class="card-head">
@@ -1134,6 +1116,24 @@
       <div class="card-note" id="savedCount">0 组</div>
     </div>
     <div class="saved-list" id="savedList"></div>
+  </section>
+
+  <!-- ============ 宜忌 ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">今日宜忌</div>
+      <div class="card-note" id="yijiSource">依十二建星</div>
+    </div>
+    <div class="yiji">
+      <div class="yiji-row">
+        <div class="yiji-tag yiji-tag--yi">宜</div>
+        <div class="yiji-items" id="yiItems"></div>
+      </div>
+      <div class="yiji-row">
+        <div class="yiji-tag yiji-tag--ji">忌</div>
+        <div class="yiji-items" id="jiItems"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ============ 周边彩票店 ============ -->
@@ -1753,6 +1753,8 @@ function evaluatePrize(pickReds, pickBlue, drawReds, drawBlue) {
 var state = {
   activeDate: startOfToday(),
   almanac: null,
+  /* 取号专用：本期开奖日那天的天象。一期一组，不随打开日期变 */
+  drawAlmanac: null,
   salt: 0,
   savedNumbers: [],
   lastDraw: {
@@ -1888,7 +1890,8 @@ function ballHtml(number, type, small) {
 
 /** 渲染今日号码（每天固定一组，换组靠「换一组」加序号） */
 function renderNumbers() {
-  var main = generateDraw(state.almanac, state.salt);
+  var a = state.drawAlmanac || state.almanac;
+  var main = generateDraw(a, state.salt);
 
   dom.mainBalls.innerHTML =
     main.reds.map(function toRed(n) {
@@ -1897,12 +1900,18 @@ function renderNumbers() {
     '<span class="ball-sep"></span>' +
     ballHtml(main.blue, "blue", false);
 
+  var isHistory = a.dateKey !== targetDrawDateKey(state.activeDate);
+
   dom.numsBasis.innerHTML =
-    "取号依据：<b>" + state.almanac.dayGanzhiText + "日</b> · " +
-    "<b>" + state.almanac.spiritName + "日</b> · " +
-    "<b>" + state.almanac.elementName + "</b> · " +
-    state.almanac.solarTermName +
-    "<br>当日干支、建除、五行、节气共同入算，同日同序号结果固定";
+    (isHistory ? "回看 " : "本期按 ") +
+    "<b>" + a.month + " 月 " + a.day + " 日</b>天象取号：" +
+    "<b>" + a.dayGanzhiText + "日</b> · " +
+    "<b>" + a.spiritName + "日</b> · " +
+    "<b>" + a.elementName + "</b> · " +
+    a.solarTermName +
+    "<br>" + (isHistory
+      ? "回看某一天就用那天的天象，换日期就换号"
+      : "一期一组，开奖前不管哪天打开都是这组号");
 
   /* 号码变了，确认区的「是否仍是这组」要跟着刷新 */
   renderConfirmView();
@@ -2074,14 +2083,26 @@ function shiftDate(days) {
 
 function refreshAll() {
   state.almanac = computeAlmanac(state.activeDate);
+  state.drawAlmanac = computeAlmanac(drawAlmanacDate(state.activeDate));
   renderSky();
   renderNumbers();
   renderCountdown();
 }
 
 /**
- * 距下期开奖还有多久。
- * 「等开奖」太虚，给个具体刻度就知道该不该守着。
+ * 取号用哪一天的天象。
+ * 今天及以后 → 落在这期的开奖日，同一期从头到尾只有一个答案；
+ * 翻到过去 → 用那天本身，保留「历史上某天会出什么号」的玩法。
+ */
+function drawAlmanacDate(activeDate) {
+  var today = startOfToday();
+  if (activeDate.getTime() < today.getTime()) return activeDate;
+  return parseDateKey(targetDrawDateKey(activeDate)) || activeDate;
+}
+
+/**
+ * 离本期停售还有多久。
+ * 开奖时刻用户不需要做任何事，停售才决定还能不能买。
  */
 function renderCountdown() {
   if (!dom.numsCountdown || !state.activeDate) return;
@@ -2093,35 +2114,45 @@ function renderCountdown() {
     return;
   }
 
-  var parts = DRAW_CLOCK.split(":");
-  var target = new Date(
-    date.getFullYear(), date.getMonth(), date.getDate(),
-    parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0
-  );
-  var diff = target.getTime() - Date.now();
+  var now = Date.now();
+  var stopAt = clockOn(date, STOP_SALE_CLOCK).getTime();
+  var drawAt = clockOn(date, DRAW_CLOCK).getTime();
 
-  if (diff <= 0) {
+  if (drawAt <= now) {
     var arrived = state.lastDraw && state.lastDraw.date === key;
-    dom.numsCountdown.textContent = arrived ? "本期已开奖" : "已到开奖时间，等公布";
+    dom.numsCountdown.textContent = arrived ? "本期已开奖" : "已过开奖时间，等公布";
     return;
   }
 
+  if (stopAt <= now) {
+    dom.numsCountdown.innerHTML = "本期已停售 · " + DRAW_CLOCK + " 开奖";
+    return;
+  }
+
+  dom.numsCountdown.innerHTML =
+    "距 " + (date.getMonth() + 1) + "/" + date.getDate() +
+    " 停售 <b>" + spanText(stopAt - now) + "</b>";
+}
+
+/** 某天的 HH:MM 时刻 */
+function clockOn(date, clock) {
+  var parts = clock.split(":");
+  return new Date(
+    date.getFullYear(), date.getMonth(), date.getDate(),
+    parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0
+  );
+}
+
+/** 把毫秒差说成人话 */
+function spanText(diff) {
   var totalMinutes = Math.floor(diff / 60000);
   var days = Math.floor(totalMinutes / 1440);
   var hours = Math.floor((totalMinutes % 1440) / 60);
   var minutes = totalMinutes % 60;
 
-  var text;
-  if (days > 0) {
-    text = days + " 天 " + hours + " 小时";
-  } else if (hours > 0) {
-    text = hours + " 小时 " + minutes + " 分";
-  } else {
-    text = minutes + " 分钟";
-  }
-
-  dom.numsCountdown.innerHTML =
-    "距 " + drawDateLabel(key) + " " + DRAW_CLOCK + " 开奖 <b>" + text + "</b>";
+  if (days > 0) return days + " 天 " + hours + " 小时";
+  if (hours > 0) return hours + " 小时 " + minutes + " 分";
+  return minutes + " 分钟";
 }
 
 /** 复制今日号码，带上日期与干支，粘给朋友也知道出处 */
@@ -2170,18 +2201,19 @@ function fallbackCopy(text) {
 
 /** 把当前主号格式化成可复制的文本 */
 function currentDrawText() {
-  var draw = generateDraw(state.almanac, state.salt);
+  var a = state.drawAlmanac || state.almanac;
+  var draw = generateDraw(a, state.salt);
   var reds = draw.reds.map(function pad(n) { return n < 10 ? "0" + n : String(n); }).join(" ");
   var blue = draw.blue < 10 ? "0" + draw.blue : String(draw.blue);
-  return state.almanac.dateKey + " " + state.almanac.dayGanzhiText + "日 " +
-    state.almanac.spiritName + "日\n红球 " + reds + "　蓝球 " + blue;
+  return a.dateKey + " " + a.dayGanzhiText + "日 " +
+    a.spiritName + "日\n红球 " + reds + "　蓝球 " + blue;
 }
 
 /** 保存当前主号 */
 function saveCurrentDraw(options) {
   var silent = options && options.silent;
-  var draw = generateDraw(state.almanac, state.salt);
-  var a = state.almanac;
+  var draw = generateDraw(state.drawAlmanac || state.almanac, state.salt);
+  var a = state.drawAlmanac || state.almanac;
 
   var duplicate = state.savedNumbers.some(function isSame(item) {
     return item.dateKey === a.dateKey &&
@@ -2220,6 +2252,8 @@ function saveCurrentDraw(options) {
 /** 双色球开奖日：周日、周二、周四 */
 var DRAW_WEEKDAYS = [0, 2, 4];
 var DRAW_CLOCK = "21:15";
+/** 开奖日停售时刻。各省略有差异，普遍 20:00，少数提前几分钟 */
+var STOP_SALE_CLOCK = "20:00";
 var WEEKDAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 function dateKeyOf(date) {
@@ -2267,7 +2301,7 @@ function drawDateLabel(key) {
 
 /** 确认当前这组号 */
 function confirmDraw() {
-  var a = state.almanac;
+  var a = state.drawAlmanac || state.almanac;
   var draw = generateDraw(a, state.salt);
 
   var same =
@@ -2408,7 +2442,7 @@ function renderConfirmView() {
   if (!dom.confirmPanel || !state.almanac) return;
 
   var c = state.confirmed;
-  var a = state.almanac;
+  var a = state.drawAlmanac || state.almanac;
 
   /* 没有确认，或翻到了别的日期，先收起面板 */
   if (!c || c.dateKey !== a.dateKey) {
@@ -2456,8 +2490,9 @@ function renderConfirmView() {
       text = "<b>" + label + "</b> 这期应该已经开奖了，但还没拿到官网数据。" +
         "点下面「立即同步」可以手动拉一次。";
     } else {
-      text = "还没开奖。这组号等 <b>" + label + " " + DRAW_CLOCK +
-        "</b> 开奖，结果公布后这里自动比对，不用再点。";
+      text = "还没开奖。这组号等 <b>" + label + "</b> 那期，" +
+        STOP_SALE_CLOCK + " 停售、" + DRAW_CLOCK +
+        " 开奖，结果公布后这里自动比对，不用再点。";
     }
   }
 
@@ -2512,7 +2547,7 @@ function checkAgainstLastDraw() {
     return;
   }
 
-  var draw = generateDraw(state.almanac, state.salt);
+  var draw = generateDraw(state.drawAlmanac || state.almanac, state.salt);
   var prize = evaluatePrize(draw.reds, draw.blue, reds, blue);
 
   if (prize.prizeName) {
