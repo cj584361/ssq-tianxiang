@@ -11,6 +11,12 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+  # 只在这个脚本或本文件本身改动时跑，避免 data.json 的提交再次触发自己
+  push:
+    branches: [main]
+    paths:
+      - "scripts/sync-draw.js"
+      - ".github/workflows/sync-draw.yml"
 
 permissions:
   contents: write
