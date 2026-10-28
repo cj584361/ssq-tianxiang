@@ -678,22 +678,55 @@
   }
 
   .saved-item {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-3);
+    display: block;
     padding: var(--sp-3);
     border-radius: var(--r-md);
     background: var(--surface-2);
     border: 1px solid var(--line-soft);
   }
 
-  .saved-meta {
-    flex: none;
-    width: 62px;
+  .saved-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-2);
+  }
+
+  .saved-when {
     font-size: var(--fs-2xs);
     color: var(--ink-3);
-    line-height: 1.5;
     font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+  }
+
+  .saved-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  /* 结果徽标：待开奖 / 中奖 X 等 / 未中奖 / 已开奖 */
+  .saved-chip {
+    font-size: 10px;
+    line-height: 1;
+    padding: 4px 7px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+    background: var(--surface-3);
+    white-space: nowrap;
+  }
+  .saved-chip--win {
+    color: var(--gold-soft);
+    border-color: rgba(216,184,115,.45);
+    background: rgba(216,184,115,.14);
+  }
+  .saved-chip--lose { color: var(--ink-2); }
+  .saved-chip--pending {
+    color: var(--warn);
+    border-color: rgba(216,154,78,.4);
+    background: rgba(216,154,78,.1);
   }
 
   .saved-balls {
@@ -828,6 +861,61 @@
     * { transition: none !important; }
   }
 
+  /* ---------- 号码辅助行：倒计时 + 复制 ---------- */
+  .nums-extra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    margin-top: var(--sp-3);
+    min-height: 18px;
+  }
+
+  .countdown {
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+    line-height: 1.5;
+  }
+
+  .countdown b {
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  /* ---------- 奖级对照 ---------- */
+  .rules-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-xs);
+    margin-top: var(--sp-3);
+  }
+
+  .rules-table th,
+  .rules-table td {
+    padding: 7px 4px;
+    text-align: left;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-2);
+    font-weight: 400;
+    vertical-align: top;
+  }
+
+  .rules-table th {
+    color: var(--ink-3);
+    font-size: var(--fs-2xs);
+    font-weight: 500;
+  }
+
+  .rules-table td:last-child {
+    text-align: right;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+
+  .rules-table tr:last-child td { border-bottom: none; }
+
   /* ============================================================
      移动端防缩放
      iOS Safari 在聚焦字号小于 16px 的输入框时，会强行把整页放大，
@@ -951,6 +1039,11 @@
 
     <div class="nums-basis" id="numsBasis">—</div>
 
+    <div class="nums-extra">
+      <span class="countdown" id="numsCountdown"></span>
+      <button class="link-btn" id="btnCopy" type="button">复制号码</button>
+    </div>
+
     <div class="confirm-panel" id="confirmPanel" hidden>
       <div class="confirm-head">
         <span class="confirm-badge" id="confirmBadge">待开奖</span>
@@ -989,8 +1082,25 @@
       <button class="btn btn--sm" id="btnCheckDraw" type="button">与上期试算</button>
     </div>
 
-    <div class="draw-edit-toggle">
+    <div class="draw-edit-toggle" style="gap:var(--sp-4)">
       <button class="link-btn" id="btnEditDraw" type="button">手动填写 / 修正</button>
+      <button class="link-btn" id="btnRules" type="button">奖级对照</button>
+    </div>
+
+    <div class="fold-body" id="rulesBody">
+      <table class="rules-table">
+        <tr><th>奖级</th><th>中奖条件</th><th>奖金</th></tr>
+        <tr><td>一等</td><td>6 红 + 蓝</td><td>浮动</td></tr>
+        <tr><td>二等</td><td>6 红</td><td>浮动</td></tr>
+        <tr><td>三等</td><td>5 红 + 蓝</td><td>3000 元</td></tr>
+        <tr><td>四等</td><td>5 红，或 4 红 + 蓝</td><td>200 元</td></tr>
+        <tr><td>五等</td><td>4 红，或 3 红 + 蓝</td><td>10 元</td></tr>
+        <tr><td>六等</td><td>蓝球中（红球不论）</td><td>5 元</td></tr>
+      </table>
+      <div class="card-note" style="line-height:1.7;margin-top:var(--sp-2)">
+        一、二等奖为浮动奖金，按当期销量与中奖注数分配。
+        六等奖只需蓝球命中，红球中几个都算。
+      </div>
     </div>
 
     <div class="fold-body" id="drawEditBody">
@@ -1705,7 +1815,8 @@ function cacheDom() {
     "issueInput", "lastReds", "lastBlue", "checkResult", "mapBox", "shopList",
     "drawStatus", "drawNote", "btnSyncDraw", "drawIssue", "drawDate", "drawStats",
     "lastDrawBalls", "btnEditDraw", "drawEditBody",
-    "mapConfigBody", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay"
+    "mapConfigBody", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay",
+    "skyCard", "numsCountdown", "btnCopy", "btnRules", "rulesBody"
   ];
   ids.forEach(function bindId(id) {
     dom[id] = document.getElementById(id);
@@ -1798,31 +1909,76 @@ function renderNumbers() {
 }
 
 /** 渲染已保存号码 */
+/**
+ * 判断一组收藏号的结果。
+ * 只存了最近一期开奖，所以能判的只有当它正好等到这一期；
+ * 更早的期次标「已开奖」，不假装知道结果。
+ */
+function savedOutcome(item) {
+  if (item.result) {
+    return item.result.prizeName
+      ? { tone: "win", text: item.result.prizeName }
+      : { tone: "lose", text: "未中奖" };
+  }
+
+  var draw = state.lastDraw || {};
+  var target = item.drawDate || "";
+
+  if (!target) return { tone: "pending", text: "待确认" };
+  if (!draw.date) return { tone: "pending", text: "待开奖" };
+
+  if (draw.date === target) {
+    var drawReds = (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); });
+    var drawBlue = parseInt(draw.blue, 10);
+    var usable = drawReds.length === SSQ_RULES.redCount &&
+      drawReds.every(function inRange(n) { return !isNaN(n); }) &&
+      !isNaN(drawBlue);
+    if (!usable) return { tone: "pending", text: "待公布" };
+
+    var pickReds = (item.reds || []).map(function toNumber(n) { return parseInt(n, 10); });
+    var prize = evaluatePrize(pickReds, parseInt(item.blue, 10), drawReds, drawBlue);
+    return prize.prizeName
+      ? { tone: "win", text: prize.prizeName }
+      : { tone: "lose", text: "未中奖" };
+  }
+
+  if (String(draw.date) > target) return { tone: "muted", text: "已开奖" };
+  return { tone: "pending", text: "待开奖" };
+}
+
 function renderSaved() {
   var list = state.savedNumbers;
   dom.savedCount.textContent = list.length + " 组";
 
   if (!list.length) {
     dom.savedList.innerHTML =
-      '<div class="empty">还没有收藏的号码<br><span style="font-size:11px;">点上方「收下这组」存进来</span></div>';
+      '<div class="empty">还没有存下的号码<br><span style="font-size:11px;">点上方「确认这组」会留一条底</span></div>';
     return;
   }
 
   dom.savedList.innerHTML = list.map(function toItem(item, index) {
-    var balls = item.reds.map(function toRed(n) { return ballHtml(n, "red", true); }).join("") +
+    var balls = (item.reds || []).map(function toRed(n) { return ballHtml(n, "red", true); }).join("") +
       ballHtml(item.blue, "blue", true);
 
-    var issueText = item.issue
-      ? "第" + item.issue + "期"
-      : item.drawDate
-        ? "待 " + String(item.drawDate).slice(5).replace("-", "/") + " 开奖"
-        : "未注期号";
+    var when = item.dateLabel + " 确认";
+    if (item.issue) {
+      when += " · 第" + item.issue + "期";
+    } else if (item.drawDate) {
+      when += " · 等 " + String(item.drawDate).slice(5).replace("-", "/") + " 开奖";
+    }
+
+    var outcome = savedOutcome(item);
 
     return (
       '<div class="saved-item">' +
-      '<div class="saved-meta">' + item.dateLabel + "<br>" + issueText + "</div>" +
+      '<div class="saved-top">' +
+      '<span class="saved-when">' + when + "</span>" +
+      '<span class="saved-chip saved-chip--' + outcome.tone + '">' + outcome.text + "</span>" +
+      "</div>" +
+      '<div class="saved-row">' +
       '<div class="saved-balls">' + balls + "</div>" +
       '<button class="saved-del" type="button" data-remove="' + index + '" aria-label="删除">×</button>' +
+      "</div>" +
       "</div>"
     );
   }).join("");
@@ -1920,6 +2076,58 @@ function refreshAll() {
   state.almanac = computeAlmanac(state.activeDate);
   renderSky();
   renderNumbers();
+  renderCountdown();
+}
+
+/**
+ * 距下期开奖还有多久。
+ * 「等开奖」太虚，给个具体刻度就知道该不该守着。
+ */
+function renderCountdown() {
+  if (!dom.numsCountdown || !state.activeDate) return;
+
+  var key = targetDrawDateKey(state.activeDate);
+  var date = parseDateKey(key);
+  if (!date) {
+    dom.numsCountdown.textContent = "";
+    return;
+  }
+
+  var parts = DRAW_CLOCK.split(":");
+  var target = new Date(
+    date.getFullYear(), date.getMonth(), date.getDate(),
+    parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0
+  );
+  var diff = target.getTime() - Date.now();
+
+  if (diff <= 0) {
+    var arrived = state.lastDraw && state.lastDraw.date === key;
+    dom.numsCountdown.textContent = arrived ? "本期已开奖" : "已到开奖时间，等公布";
+    return;
+  }
+
+  var totalMinutes = Math.floor(diff / 60000);
+  var days = Math.floor(totalMinutes / 1440);
+  var hours = Math.floor((totalMinutes % 1440) / 60);
+  var minutes = totalMinutes % 60;
+
+  var text;
+  if (days > 0) {
+    text = days + " 天 " + hours + " 小时";
+  } else if (hours > 0) {
+    text = hours + " 小时 " + minutes + " 分";
+  } else {
+    text = minutes + " 分钟";
+  }
+
+  dom.numsCountdown.innerHTML =
+    "距 " + drawDateLabel(key) + " " + DRAW_CLOCK + " 开奖 <b>" + text + "</b>";
+}
+
+/** 复制今日号码，带上日期与干支，粘给朋友也知道出处 */
+function copyCurrentNumbers() {
+  if (!state.almanac) return;
+  copyText(currentDrawText());
 }
 
 function showToast(message) {
@@ -2180,6 +2388,12 @@ function backfillSavedIssue(c) {
     if (Number(item.blue) !== Number(c.blue)) return;
     item.issue = c.result.issue;
     item.drawDate = c.result.date;
+    item.result = {
+      prizeName: c.result.prizeName,
+      prizeAmount: c.result.prizeAmount,
+      hitReds: c.result.hitReds,
+      hitBlue: c.result.hitBlue
+    };
     touched = true;
   });
 
@@ -2386,6 +2600,8 @@ function applyDrawData(data, stale, meta) {
     renderDrawMeta();
   } else {
     renderLastDraw();
+    /* 新一期到了，「我的号码」里的待开奖状态要跟着变 */
+    renderSaved();
   }
 
   var now = new Date();
@@ -2895,6 +3111,37 @@ function bindEvents() {
     refreshAll();
   });
 
+  /* 天象卡左右滑动切日期，省得来回点小箭头 */
+  var swipeX = 0;
+  var swipeY = 0;
+  var swipeArmed = false;
+
+  dom.skyCard.addEventListener("touchstart", function onSwipeStart(event) {
+    var touch = event.touches && event.touches[0];
+    if (!touch) return;
+    swipeX = touch.clientX;
+    swipeY = touch.clientY;
+    swipeArmed = true;
+  }, { passive: true });
+
+  dom.skyCard.addEventListener("touchend", function onSwipeEnd(event) {
+    if (!swipeArmed) return;
+    swipeArmed = false;
+    var touch = event.changedTouches && event.changedTouches[0];
+    if (!touch) return;
+    var dx = touch.clientX - swipeX;
+    var dy = touch.clientY - swipeY;
+    // 只认明确的横向手势，斜着划、上下滚都不算
+    if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+    shiftDate(dx > 0 ? -1 : 1);
+  }, { passive: true });
+
+  document.getElementById("btnCopy").addEventListener("click", copyCurrentNumbers);
+
+  document.getElementById("btnRules").addEventListener("click", function onRules() {
+    dom.rulesBody.classList.toggle("fold-body--open");
+  });
+
   document.getElementById("btnReroll").addEventListener("click", function onReroll() {
     state.salt += 1;
     writeStorage(STORAGE_KEYS.salt, state.salt);
@@ -3048,6 +3295,9 @@ function bootstrap() {
   /* 开奖数据：先渲染本地缓存，再异步拉最新，拉不到不影响页面 */
   syncLatestDraw();
   startDrawSyncLoop();
+
+  /* 倒计时每 30 秒走一格；浏览器后台会自动降频，不必额外处理 */
+  window.setInterval(renderCountdown, 30000);
 
   // 已有 Key 时自动加载地图；失败会自行降级
   if (state.amapKey) {
