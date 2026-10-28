@@ -1,0 +1,47 @@
+name: 同步开奖数据
+
+# GitHub Pages 是静态托管，跑不了 server.js。
+# 所以让 GitHub 的服务器替页面去抓：定时把最新一期写进 data.json 提交回仓库，
+# 页面读同源的 data.json，既绕开跨域，也不用任何第三方代理。
+#
+# 开奖时间：每周二、四、日 21:15（北京时间 = UTC 13:15）。
+# GitHub 的 schedule 会排队延迟，实测通常晚几分钟到二十分钟。
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-draw
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 抓取最新一期
+        run: node scripts/sync-draw.js
+
+      - name: 有变化才提交
+        run: |
+          if [ -z "$(git status --porcelain data.json)" ]; then
+            echo "data.json 无变化，跳过提交"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git commit -m "chore: 同步开奖数据 $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push

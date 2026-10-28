@@ -1,0 +1,2802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D0F13">
+<title>天象选号 · 双色球</title>
+<style>
+  /* ============================================================
+     设计令牌：颜色 / 字号 / 间距 / 圆角全部由此出，禁止硬编码
+     ============================================================ */
+  :root {
+    /* 底色由深至浅：页面 → 卡片 → 浮层 */
+    --bg:          #0D0F13;
+    --bg-soft:     #12151B;
+    --surface:     #171B22;
+    --surface-2:   #1E232C;
+    --surface-3:   #262C37;
+
+    --line:        #2A303B;
+    --line-soft:   #20252E;
+
+    --ink:         #EEF0F3;
+    --ink-2:       #A3ABB8;
+    --ink-3:       #6E7787;
+
+    /* 金：主强调色，取自「黄历 / 铜钱」的质感 */
+    --gold:        #D8B873;
+    --gold-soft:   #F0D9A6;
+    --gold-dark:   #8B7340;
+    --gold-glow:   rgba(216, 184, 115, 0.14);
+
+    --red:         #CF5340;
+    --red-soft:    #E87A66;
+    --blue:        #4C7FBE;
+    --blue-soft:   #79A6DE;
+
+    --ok:          #5FA97C;
+    --warn:        #D89A4E;
+    --danger:      #CF5340;
+
+    --r-lg:        18px;
+    --r-md:        14px;
+    --r-sm:        10px;
+    --r-full:      999px;
+
+    --sp-1:        4px;
+    --sp-2:        8px;
+    --sp-3:        12px;
+    --sp-4:        16px;
+    --sp-5:        20px;
+    --sp-6:        24px;
+    --sp-8:        32px;
+
+    --fs-2xs:      10px;
+    --fs-xs:       11px;
+    --fs-sm:       12.5px;
+    --fs-md:       14px;
+    --fs-lg:       17px;
+    --fs-xl:       22px;
+    --fs-2xl:      28px;
+    --fs-display:  40px;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --shadow-ball: 0 4px 12px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", system-ui, sans-serif;
+    font-size: var(--fs-md);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    /* 顶部一层极淡的金色光晕，模拟灯下看历书的感觉 */
+    background-image:
+      radial-gradient(120% 60% at 50% -10%, var(--gold-glow) 0%, transparent 62%);
+    background-repeat: no-repeat;
+    min-height: 100vh;
+  }
+
+  /* ---------- 布局骨架 ---------- */
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) calc(var(--sp-8) + env(safe-area-inset-bottom));
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    padding: var(--sp-5);
+    margin-bottom: var(--sp-4);
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+  }
+
+  .card-title {
+    font-size: var(--fs-md);
+    font-weight: 600;
+    letter-spacing: .01em;
+  }
+
+  .card-note {
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+  }
+
+  /* ---------- 顶部日期栏 ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+    padding: var(--sp-1) var(--sp-1) 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  .brand-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: var(--r-sm);
+    background: linear-gradient(150deg, var(--gold) 0%, var(--gold-dark) 100%);
+    display: grid;
+    place-items: center;
+    font-size: var(--fs-sm);
+    color: #1A1408;
+    font-weight: 700;
+  }
+
+  .brand-name {
+    font-size: var(--fs-md);
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+
+  .date-switch {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: var(--fs-md);
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+
+  .icon-btn:active { border-color: var(--gold-dark); color: var(--gold); }
+  .icon-btn:disabled { opacity: .35; cursor: default; }
+
+  /* ---------- 天象主卡 ---------- */
+  .sky-date {
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+
+  .sky-sub {
+    font-size: var(--fs-sm);
+    color: var(--ink-2);
+    margin-top: var(--sp-1);
+  }
+
+  .ganzhi-row {
+    display: flex;
+    gap: var(--sp-2);
+    margin-top: var(--sp-4);
+    flex-wrap: wrap;
+  }
+
+  .ganzhi-pill {
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--r-full);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    font-size: var(--fs-sm);
+    color: var(--ink-2);
+    letter-spacing: .06em;
+  }
+
+  .ganzhi-pill--day {
+    color: var(--gold-soft);
+    border-color: var(--gold-dark);
+    background: rgba(216, 184, 115, .08);
+  }
+
+  /* 建除十二神：这一格是本页的「气场主标识」 */
+  .spirit {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    margin-top: var(--sp-5);
+    padding: var(--sp-4);
+    border-radius: var(--r-md);
+    background: linear-gradient(135deg, rgba(216,184,115,.12) 0%, rgba(216,184,115,.02) 100%);
+    border: 1px solid var(--gold-dark);
+  }
+
+  .spirit-name {
+    font-size: var(--fs-display);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--gold-soft);
+    letter-spacing: .04em;
+    flex: none;
+  }
+
+  .spirit-desc {
+    font-size: var(--fs-sm);
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+
+  .spirit-badge {
+    display: inline-block;
+    margin-top: var(--sp-2);
+    font-size: var(--fs-2xs);
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+  }
+
+  .spirit-badge--good { color: var(--ok); border-color: rgba(95,169,124,.4); }
+  .spirit-badge--bad  { color: var(--danger); border-color: rgba(207,83,64,.4); }
+
+  /* 天象细项：四宫格 */
+  .sky-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+  }
+
+  .sky-cell {
+    background: var(--surface-2);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .sky-cell-k {
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+    letter-spacing: .08em;
+  }
+
+  .sky-cell-v {
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sky-cell-x {
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+    margin-top: 1px;
+  }
+
+  /* 月相条 */
+  .moon-track {
+    margin-top: var(--sp-4);
+  }
+
+  .moon-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+    margin-bottom: var(--sp-2);
+  }
+
+  .moon-bar {
+    height: 6px;
+    border-radius: var(--r-full);
+    background: var(--surface-3);
+    overflow: hidden;
+  }
+
+  .moon-fill {
+    height: 100%;
+    border-radius: var(--r-full);
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold-soft));
+    transition: width .3s ease;
+  }
+
+  /* ---------- 宜忌 ---------- */
+  .yiji {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .yiji-row {
+    display: flex;
+    gap: var(--sp-3);
+    align-items: flex-start;
+  }
+
+  .yiji-tag {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--r-sm);
+    display: grid;
+    place-items: center;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  .yiji-tag--yi  { background: rgba(95,169,124,.16); color: var(--ok); border: 1px solid rgba(95,169,124,.35); }
+  .yiji-tag--ji  { background: rgba(207,83,64,.14); color: var(--red-soft); border: 1px solid rgba(207,83,64,.32); }
+
+  .yiji-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+
+  .yiji-item {
+    font-size: var(--fs-sm);
+    color: var(--ink-2);
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+  }
+
+  /* ---------- 号码球 ---------- */
+  .balls {
+    display: flex;
+    gap: var(--sp-2);
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+
+  .ball {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--r-full);
+    display: grid;
+    place-items: center;
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    box-shadow: var(--shadow-ball);
+    flex: none;
+  }
+
+  .ball--red {
+    background: radial-gradient(circle at 34% 28%, var(--red-soft) 0%, var(--red) 52%, #9E3A2B 100%);
+  }
+
+  .ball--blue {
+    background: radial-gradient(circle at 34% 28%, var(--blue-soft) 0%, var(--blue) 52%, #2F5A92 100%);
+  }
+
+  .ball--sm {
+    width: 27px;
+    height: 27px;
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+  }
+
+  .ball-sep {
+    width: 1px;
+    height: 26px;
+    background: var(--line);
+    margin: 0 var(--sp-1);
+    flex: none;
+  }
+
+  .ball--empty {
+    background: transparent;
+    border: 1px dashed var(--line);
+    box-shadow: none;
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+
+  /* ---------- 上期开奖 ---------- */
+  .draw-headline {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+
+  .draw-issue {
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+  }
+
+  .draw-date {
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .draw-stats {
+    margin-top: var(--sp-3);
+    text-align: center;
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    min-height: 14px;
+    letter-spacing: .02em;
+  }
+
+  .draw-edit-toggle {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--sp-3);
+  }
+
+  .nums-main {
+    padding: var(--sp-2) 0 var(--sp-1);
+  }
+
+  .nums-basis {
+    text-align: center;
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+    margin-top: var(--sp-4);
+    line-height: 1.7;
+  }
+
+  .nums-basis b {
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+
+  /* ---------- 确认区 ---------- */
+  .confirm-panel {
+    margin-top: var(--sp-5);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    background: var(--surface-2);
+  }
+
+  .confirm-panel[hidden] { display: none; }
+
+  .confirm-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+  }
+
+  .confirm-badge {
+    font-size: var(--fs-xs);
+    line-height: 1;
+    padding: 5px 9px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+    background: var(--surface-3);
+    white-space: nowrap;
+  }
+
+  .confirm-text {
+    margin-top: var(--sp-2);
+    font-size: var(--fs-sm);
+    color: var(--ink-2);
+    line-height: 1.75;
+  }
+
+  .confirm-text b { color: var(--ink); font-weight: 600; }
+
+  .confirm-text small {
+    display: block;
+    margin-top: var(--sp-1);
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+  }
+
+  /* 待开奖 */
+  .confirm-panel--pending { border-left-color: var(--warn); }
+  .confirm-panel--pending .confirm-badge {
+    color: var(--warn);
+    border-color: rgba(216,154,78,.4);
+    background: rgba(216,154,78,.1);
+  }
+
+  /* 中奖 */
+  .confirm-panel--win {
+    border-left-color: var(--gold);
+    background: linear-gradient(180deg, rgba(216,184,115,.1), rgba(216,184,115,.03));
+  }
+  .confirm-panel--win .confirm-badge {
+    color: var(--gold-soft);
+    border-color: rgba(216,184,115,.45);
+    background: rgba(216,184,115,.14);
+  }
+
+  /* 未中奖 */
+  .confirm-panel--lose { border-left-color: var(--line); }
+  .confirm-panel--lose .confirm-badge { color: var(--ink-2); }
+
+  /* 数据缺失 / 期次已过 */
+  .confirm-panel--muted { border-left-color: var(--ink-3); }
+
+  .link-btn {
+    border: none;
+    background: none;
+    color: var(--gold);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+    padding: var(--sp-1) var(--sp-1);
+    font-family: inherit;
+  }
+
+  .link-btn:active { opacity: .6; }
+
+  /* ---------- 按钮 ---------- */
+  .btn-row {
+    display: flex;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+  }
+
+  .btn {
+    flex: 1;
+    height: 44px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: var(--fs-md);
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, transform .1s;
+  }
+
+  .btn:active { transform: scale(.985); }
+
+  .btn--primary {
+    background: linear-gradient(135deg, var(--gold) 0%, #C4A05C 100%);
+    border-color: transparent;
+    color: #1A1408;
+    font-weight: 600;
+  }
+
+  .btn--ghost {
+    background: transparent;
+  }
+
+  .btn--sm {
+    height: 34px;
+    font-size: var(--fs-sm);
+    border-radius: var(--r-sm);
+  }
+
+  /* ---------- 表单 ---------- */
+  .field {
+    margin-bottom: var(--sp-3);
+  }
+
+  .field-label {
+    display: block;
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+    margin-bottom: var(--sp-2);
+    letter-spacing: .04em;
+  }
+
+  .input {
+    width: 100%;
+    height: 42px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 0 var(--sp-3);
+    font-size: var(--fs-md);
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s;
+  }
+
+  .input:focus { border-color: var(--gold-dark); }
+  .input::placeholder { color: var(--ink-3); }
+
+  .input--num {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 号码录入：6 红 + 1 蓝 小格 */
+  .pick-group {
+    display: flex;
+    gap: var(--sp-1);
+    flex: 1;
+  }
+
+  /* ---------- 结果条 ---------- */
+  .result {
+    margin-top: var(--sp-4);
+    padding: var(--sp-4);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    font-size: var(--fs-sm);
+    color: var(--ink-2);
+    line-height: 1.7;
+  }
+
+  .result--win  { border-color: rgba(95,169,124,.45); background: rgba(95,169,124,.08); }
+  .result--lose { border-color: var(--line); }
+  .result--none { color: var(--ink-3); }
+
+  .result b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- 我的号码 ---------- */
+  .saved-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .saved-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+  }
+
+  .saved-meta {
+    flex: none;
+    width: 62px;
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .saved-balls {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .saved-del {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-3);
+    font-size: var(--fs-md);
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .saved-del:active { color: var(--red-soft); border-color: var(--red); }
+
+  .empty {
+    text-align: center;
+    padding: var(--sp-6) var(--sp-4);
+    color: var(--ink-3);
+    font-size: var(--fs-sm);
+    line-height: 1.8;
+  }
+
+  /* ---------- 地图 ---------- */
+  .map-box {
+    height: 240px;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: var(--sp-4);
+  }
+
+  .map-hint {
+    font-size: var(--fs-sm);
+    color: var(--ink-3);
+    line-height: 1.8;
+  }
+
+  .shop-list {
+    margin-top: var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  .shop-item {
+    padding: var(--sp-3);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    font-size: var(--fs-sm);
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sp-3);
+  }
+
+  .shop-name { color: var(--ink); }
+  .shop-dist { color: var(--ink-3); font-size: var(--fs-xs); flex: none; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 免责 ---------- */
+  .disclaimer {
+    margin-top: var(--sp-6);
+    padding: var(--sp-4);
+    border-radius: var(--r-md);
+    border: 1px solid var(--line-soft);
+    background: var(--bg-soft);
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+    line-height: 1.85;
+  }
+
+  .disclaimer strong { color: var(--warn); font-weight: 600; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--sp-8) + env(safe-area-inset-bottom));
+    transform: translate(-50%, 12px);
+    background: var(--surface-3);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    padding: var(--sp-2) var(--sp-4);
+    border-radius: var(--r-full);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 99;
+    max-width: 80vw;
+    text-align: center;
+  }
+
+  .toast--on {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  /* ---------- 折叠区 ---------- */
+  .fold-body {
+    display: none;
+    padding-top: var(--sp-4);
+  }
+
+  .fold-body--open { display: block; }
+
+  /* 窄屏适配：7 个球在 375px 宽度下会挤爆容器，压缩尺寸与间距 */
+  @media (max-width: 380px) {
+    .ball {
+      width: 36px;
+      height: 36px;
+      font-size: var(--fs-md);
+    }
+    .balls { gap: var(--sp-1); }
+    .app { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+    .card { padding: var(--sp-4); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ 顶栏 ============ -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">玄</div>
+      <div class="brand-name">天象选号</div>
+    </div>
+    <div class="date-switch">
+      <button class="icon-btn" id="btnPrevDay" type="button" aria-label="前一天">‹</button>
+      <button class="icon-btn" id="btnToday" type="button" aria-label="回到今天" style="width:auto;padding:0 10px;font-size:11px;">今天</button>
+      <button class="icon-btn" id="btnNextDay" type="button" aria-label="后一天">›</button>
+    </div>
+  </div>
+
+  <!-- ============ 今日天象 ============ -->
+  <section class="card" id="skyCard">
+    <div class="sky-date" id="skyDate">—</div>
+    <div class="sky-sub" id="skySub">—</div>
+    <div class="ganzhi-row" id="ganzhiRow"></div>
+
+    <div class="spirit">
+      <div class="spirit-name" id="spiritName">—</div>
+      <div>
+        <div class="spirit-desc" id="spiritDesc">—</div>
+        <div class="spirit-badge" id="spiritBadge"></div>
+      </div>
+    </div>
+
+    <div class="sky-grid">
+      <div class="sky-cell">
+        <div class="sky-cell-k">节 气</div>
+        <div class="sky-cell-v" id="termName">—</div>
+        <div class="sky-cell-x" id="termNote">—</div>
+      </div>
+      <div class="sky-cell">
+        <div class="sky-cell-k">日 主</div>
+        <div class="sky-cell-v" id="dayMaster">—</div>
+        <div class="sky-cell-x" id="dayMasterNote">—</div>
+      </div>
+      <div class="sky-cell">
+        <div class="sky-cell-k">冲 煞</div>
+        <div class="sky-cell-v" id="chongSha">—</div>
+        <div class="sky-cell-x">日支所冲，行事避开该方位</div>
+      </div>
+      <div class="sky-cell">
+        <div class="sky-cell-k">月 相</div>
+        <div class="sky-cell-v" id="moonName">—</div>
+        <div class="sky-cell-x" id="moonNote">—</div>
+      </div>
+    </div>
+
+    <div class="moon-track">
+      <div class="moon-label">
+        <span>朔</span><span>上弦</span><span>望</span><span>下弦</span><span>朔</span>
+      </div>
+      <div class="moon-bar"><div class="moon-fill" id="moonFill" style="width:0%"></div></div>
+    </div>
+  </section>
+
+  <!-- ============ 宜忌 ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">今日宜忌</div>
+      <div class="card-note" id="yijiSource">依十二建星</div>
+    </div>
+    <div class="yiji">
+      <div class="yiji-row">
+        <div class="yiji-tag yiji-tag--yi">宜</div>
+        <div class="yiji-items" id="yiItems"></div>
+      </div>
+      <div class="yiji-row">
+        <div class="yiji-tag yiji-tag--ji">忌</div>
+        <div class="yiji-items" id="jiItems"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 今日号码 ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">今日号码</div>
+      <div class="card-note">双色球 · 6 红 1 蓝</div>
+    </div>
+
+    <div class="nums-main">
+      <div class="balls" id="mainBalls"></div>
+    </div>
+
+    <div class="nums-basis" id="numsBasis">—</div>
+
+    <div class="confirm-panel" id="confirmPanel" hidden>
+      <div class="confirm-head">
+        <span class="confirm-badge" id="confirmBadge">待开奖</span>
+        <button class="link-btn" id="btnUnconfirm" type="button">撤销确认</button>
+      </div>
+      <div class="confirm-text" id="confirmText"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn--ghost" id="btnReroll" type="button">换一组</button>
+      <button class="btn btn--primary" id="btnConfirm" type="button">确认这组</button>
+    </div>
+  </section>
+
+  <!-- ============ 上期开奖 ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">上期开奖</div>
+      <div class="card-note" id="drawStatus">准备同步…</div>
+    </div>
+    <div class="draw-headline">
+      <div class="draw-issue" id="drawIssue">第 —— 期</div>
+      <div class="draw-date" id="drawDate">尚无开奖数据</div>
+    </div>
+
+    <div class="nums-main">
+      <div class="balls" id="lastDrawBalls"></div>
+    </div>
+
+    <div class="draw-stats" id="drawStats"></div>
+
+    <div class="result result--none" id="checkResult">想看看这组号碰上上一期会怎样？可以点下面的「与上期试算」。</div>
+
+    <div class="btn-row" style="margin-top:var(--sp-4)">
+      <button class="btn btn--sm" id="btnSyncDraw" type="button">立即同步</button>
+      <button class="btn btn--sm" id="btnCheckDraw" type="button">与上期试算</button>
+    </div>
+
+    <div class="draw-edit-toggle">
+      <button class="link-btn" id="btnEditDraw" type="button">手动填写 / 修正</button>
+    </div>
+
+    <div class="fold-body" id="drawEditBody">
+      <div class="field">
+        <label class="field-label" for="issueInput">期号（可留空）</label>
+        <input class="input" id="issueInput" type="text" inputmode="numeric" placeholder="例如 2026123">
+      </div>
+
+      <div class="field">
+        <label class="field-label">红球 6 个（1–33）</label>
+        <div class="pick-group" id="lastReds"></div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">蓝球 1 个（1–16）</label>
+        <div style="width:76px">
+          <input class="input input--num" id="lastBlue" type="text" inputmode="numeric" maxlength="2" placeholder="—">
+        </div>
+      </div>
+
+      <div class="card-note" id="drawNote" style="line-height:1.7;">
+        数据取自中国福彩官网。联网失败时可在这里手动填写，收起后照样能比对。
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 我的号码 ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">我的号码</div>
+      <div class="card-note" id="savedCount">0 组</div>
+    </div>
+    <div class="saved-list" id="savedList"></div>
+  </section>
+
+  <!-- ============ 周边彩票店 ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div class="card-title">周边彩票店</div>
+      <div class="card-note">高德地图</div>
+    </div>
+
+    <div class="map-box" id="mapBox">
+      <div class="map-hint">
+        未配置地图密钥<br>
+        <span style="font-size:11px;">填入高德 Key 后可显示附近店铺</span>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:var(--sp-3)">
+      <button class="btn btn--sm" id="btnOpenMap" type="button">在高德地图中搜索</button>
+      <button class="btn btn--sm btn--ghost" id="btnMapConfig" type="button">配置密钥</button>
+    </div>
+
+    <div class="fold-body" id="mapConfigBody">
+      <div class="field" style="margin-top:var(--sp-4)">
+        <label class="field-label" for="amapKeyInput">高德 Web 端 JS API Key</label>
+        <input class="input" id="amapKeyInput" type="text" placeholder="粘贴 Key 后点保存" autocomplete="off">
+      </div>
+      <div class="card-note" style="line-height:1.75;margin-bottom:var(--sp-3)">
+        Key 只存在你本机。申请：高德开放平台 → 应用管理 → 新建 Web 端（JS API）。
+        注意：本地双击打开（file://）时地图可能被浏览器的安全策略拦截，部署到 https 后正常。
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn btn--sm" id="btnSaveKey" type="button">保存</button>
+        <button class="btn btn--sm btn--ghost" id="btnClearKey" type="button">清除</button>
+      </div>
+    </div>
+
+    <div class="shop-list" id="shopList"></div>
+  </section>
+
+  <!-- ============ 免责 ============ -->
+  <div class="disclaimer">
+    <strong>娱乐工具，不是预测。</strong>
+    本页号码由当日干支、节气、建除、五行等日期信息经确定性算法生成，
+    同一天同一组序号必然得到同一结果，这是为了让号码「有出处」，
+    与开奖结果<b>没有任何因果关系</b>。双色球每期开奖是独立随机事件，
+    任何算法都无法提高中奖概率。<br><br>
+    请理性购彩，量力而行。未满 18 周岁不得购买彩票。
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ==================================================================
+ * 一、常量表
+ * ================================================================== */
+
+/** 天干，索引 0–9 */
+var HEAVENLY_STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
+
+/** 地支，索引 0–11（子 = 0） */
+var EARTHLY_BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+
+/** 十二生肖，与地支一一对应 */
+var ZODIACS = ["鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊", "猴", "鸡", "狗", "猪"];
+
+/** 五行，按天干索引 / 2 取整对应：木火土金水 */
+var FIVE_ELEMENTS = ["木", "火", "土", "金", "水"];
+
+/**
+ * 十二建星（建除满平定执破危成收开闭）。
+ * 传统黄历以「月建」为纲，当日地支与月建相同者为「建」，依次顺推。
+ */
+var TWELVE_SPIRITS = [
+  { name: "建", desc: "万物生育、健壮之日，诸事可为，唯不宜动土开仓。", good: true },
+  { name: "除", desc: "除旧布新之象。扫舍、疗病、解除皆宜，不宜开张上任。", good: true },
+  { name: "满", desc: "丰收圆满、福气盈溢，宜祭祀开市，忌服药栽种。", good: true },
+  { name: "平", desc: "平常平稳，无吉无凶，宜修整道路，忌开渠栽种。", good: null },
+  { name: "定", desc: "安定守成、诸事底定，宜订约定盟，忌出行诉讼。", good: true },
+  { name: "执", desc: "操守执持、固守不移，宜捕捉修造，忌开市搬迁。", good: null },
+  { name: "破", desc: "刚旺破败之象，诸事不宜，唯宜破屋求医。", good: false },
+  { name: "危", desc: "危险危机，宜守不宜进，忌登高远行。", good: false },
+  { name: "成", desc: "万物成就、诸事顺遂，宜嫁娶开市入学。", good: true },
+  { name: "收", desc: "收成收获、纳财入库，宜收账入仓，忌开市远行。", good: null },
+  { name: "开", desc: "开通开放、百事可期，宜开市出行求财。", good: true },
+  { name: "闭", desc: "闭塞收藏，宜静不宜动，忌开市出行求医。", good: false }
+];
+
+/** 十二建星对应的宜 / 忌（传统简表，每项取 5–6 条，避免信息过载） */
+var SPIRIT_YIJI = [
+  { yi: ["出行", "上任", "会友", "上书", "见贵"], ji: ["动土", "开仓", "出货财"] },
+  { yi: ["祭祀", "解除", "扫舍", "疗病", "出行"], ji: ["开张", "上任", "嫁娶", "搬迁"] },
+  { yi: ["祭祀", "祈福", "开市", "交易", "立券"], ji: ["服药", "栽种", "安葬"] },
+  { yi: ["修整", "平治道涂", "嫁娶", "会友"], ji: ["开渠", "栽种", "动土"] },
+  { yi: ["订盟", "签约", "安床", "入学", "嫁娶"], ji: ["出行", "诉讼", "搬迁"] },
+  { yi: ["捕捉", "修造", "嫁娶", "立券"], ji: ["开市", "搬迁", "出行"] },
+  { yi: ["破屋", "坏垣", "求医", "解除"], ji: ["嫁娶", "开市", "动土", "搬迁"] },
+  { yi: ["安床", "祭祀", "祈福", "纳财"], ji: ["登高", "出行", "冒险", "诉讼"] },
+  { yi: ["嫁娶", "开市", "入学", "入宅", "修造"], ji: ["诉讼", "破屋", "动土"] },
+  { yi: ["纳财", "入仓", "收账", "捕捉"], ji: ["开市", "安葬", "出行"] },
+  { yi: ["开市", "出行", "求财", "动土", "修造"], ji: ["安葬", "破土", "诉讼"] },
+  { yi: ["筑堤", "埋藏", "修坟", "纳财"], ji: ["开市", "出行", "求医"] }
+];
+
+/** 二十四节气，索引 0 对应太阳黄经 0°（春分），每 15° 一个 */
+var SOLAR_TERMS = [
+  "春分", "清明", "谷雨", "立夏", "小满", "芒种",
+  "夏至", "小暑", "大暑", "立秋", "处暑", "白露",
+  "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+  "冬至", "小寒", "大寒", "立春", "雨水", "惊蛰"
+];
+
+/** 各日支对应的煞方（申子辰煞南、寅午戌煞北、亥卯未煞西、巳酉丑煞东） */
+var SHA_DIRECTIONS = {
+  0: "南", 4: "南", 8: "南",
+  2: "北", 6: "北", 10: "北",
+  3: "西", 7: "西", 11: "西",
+  1: "东", 5: "东", 9: "东"
+};
+
+/** 月相名称与对应的相位区间下界（单位：度，0 = 朔） */
+var MOON_PHASES = [
+  { at: 0,    name: "朔月" },
+  { at: 22.5, name: "娥眉月" },
+  { at: 67.5, name: "上弦月" },
+  { at: 112.5, name: "盈凸月" },
+  { at: 157.5, name: "望月" },
+  { at: 202.5, name: "亏凸月" },
+  { at: 247.5, name: "下弦月" },
+  { at: 292.5, name: "残月" },
+  { at: 337.5, name: "朔月" }
+];
+
+/** 双色球规则常量 */
+var SSQ_RULES = {
+  redMin: 1,
+  redMax: 33,
+  redCount: 6,
+  blueMin: 1,
+  blueMax: 16
+};
+
+/** 本地存储键名 */
+var STORAGE_KEYS = {
+  savedNumbers: "sky.ssq.saved.v1",
+  lastDraw: "sky.ssq.lastdraw.v1",
+  amapKey: "sky.ssq.amapkey.v1",
+  confirmed: "sky.ssq.confirmed.v1",
+  salt: "sky.ssq.salt.v1"
+};
+
+/* ==================================================================
+ * 二、历法核心
+ * 全部基于天文公式，不依赖农历数据表，可离线精确推算。
+ * ================================================================== */
+
+/** 角度归一到 [0, 360) */
+function normalizeDegrees(deg) {
+  var d = deg % 360;
+  return d < 0 ? d + 360 : d;
+}
+
+/** 角度转弧度 */
+function toRadians(deg) {
+  return (deg * Math.PI) / 180;
+}
+
+/**
+ * 把公历年月日转成儒略日数（JDN，当日中午）。
+ * @param {number} year - 公历年，四位数
+ * @param {number} month - 公历月，1–12
+ * @param {number} day - 公历日，1–31
+ * @returns {number} 儒略日数（整数）
+ * @example toJulianDay(2026, 10, 28) // 2461342
+ */
+function toJulianDay(year, month, day) {
+  var a = Math.floor((14 - month) / 12);
+  var y = year + 4800 - a;
+  var m = month + 12 * a - 3;
+  return (
+    day +
+    Math.floor((153 * m + 2) / 5) +
+    365 * y +
+    Math.floor(y / 4) -
+    Math.floor(y / 100) +
+    Math.floor(y / 400) -
+    32045
+  );
+}
+
+/**
+ * 计算太阳视黄经（低精度公式，误差约 0.01°，对应时间约 15 分钟）。
+ * 用于确定节气与月建，精度足够黄历使用。
+ * @param {number} jd - 儒略日，可含小数（.5 表示 0 时）
+ * @returns {number} 太阳视黄经，0–360 度，0° 为春分点
+ */
+function getSunLongitude(jd) {
+  var t = (jd - 2451545.0) / 36525;
+  var meanLongitude = 280.46646 + 36000.76983 * t + 0.0003032 * t * t;
+  var meanAnomaly = 357.52911 + 35999.05029 * t - 0.0001537 * t * t;
+
+  var mRad = toRadians(meanAnomaly);
+  var centerEquation =
+    (1.914602 - 0.004817 * t - 0.000014 * t * t) * Math.sin(mRad) +
+    (0.019993 - 0.000101 * t) * Math.sin(2 * mRad) +
+    0.000289 * Math.sin(3 * mRad);
+
+  var trueLongitude = meanLongitude + centerEquation;
+  var omega = 125.04 - 1934.136 * t;
+  var apparentLongitude = trueLongitude - 0.00569 - 0.00478 * Math.sin(toRadians(omega));
+
+  return normalizeDegrees(apparentLongitude);
+}
+
+/**
+ * 计算某日正午的太阳黄经，换算成「当前所处的节气索引」。
+ * 节气索引 0 = 春分（黄经 0°），每 15° 一个。
+ * @param {number} jd - 儒略日
+ * @returns {number} 0–23 的节气索引
+ */
+function getSolarTermIndex(jd) {
+  return Math.floor(normalizeDegrees(getSunLongitude(jd)) / 15) % 24;
+}
+
+/**
+ * 由太阳黄经反推当前节气月的地支索引。
+ * 节气月：立春起寅月，每 30° 一个月；寒露（195°）起为戌月。
+ * @param {number} jd - 儒略日
+ * @returns {number} 地支索引，0 = 子，2 = 寅
+ */
+function getMonthBranchIndex(jd) {
+  var longitude = normalizeDegrees(getSunLongitude(jd));
+  // 195° 为寒露，对应戌月（地支索引 10），往后每 30° 进一个月
+  var offset = Math.floor(normalizeDegrees(longitude - 195) / 30);
+  return (10 + offset) % 12;
+}
+
+/**
+ * 计算日干支索引。
+ * 已用 2026-10-28（乙亥日）、2000-01-01（戊午日）交叉验证。
+ * @param {number} jd - 儒略日
+ * @returns {number} 0–59，0 = 甲子
+ */
+function getDayGanzhiIndex(jd) {
+  return (jd + 49) % 60;
+}
+
+/**
+ * 计算年干支索引，以立春为界（八字惯例，非正月初一）。
+ * @param {number} jd - 儒略日
+ * @param {number} year - 公历年
+ * @param {number} month - 公历月，1–12
+ * @returns {number} 0–59，0 = 甲子
+ */
+function getYearGanzhiIndex(jd, year, month) {
+  // 年干支以立春（太阳黄经 315°）为界，不是正月初一，也不是 1 月 1 日。
+  // 只在 1–2 月需要判断：此时黄经介于 280°–330°，小于 315° 即仍在立春前。
+  // 12 月下旬同样是冬至后的黄经，但那时已属当年，所以不能只看黄经、必须限定月份。
+  var effectiveYear = year;
+
+  if (month <= 2) {
+    var longitude = normalizeDegrees(getSunLongitude(jd));
+    if (longitude < 315) {
+      effectiveYear = year - 1;
+    }
+  }
+
+  var base = (effectiveYear - 4) % 60;
+  return base < 0 ? base + 60 : base;
+}
+
+/**
+ * 计算月干支索引。
+ * 五虎遁：甲己之年丙作首，即寅月天干由年干推出，其后顺排。
+ * @param {number} yearGanzhiIndex - 年干支索引
+ * @param {number} monthBranchIndex - 节气月地支索引
+ * @returns {number} 0–59，0 = 甲子
+ */
+function getMonthGanzhiIndex(yearGanzhiIndex, monthBranchIndex) {
+  var yearStemIndex = yearGanzhiIndex % 10;
+  var yinMonthStem = ((yearStemIndex % 5) * 2 + 2) % 10;
+  var offsetFromYin = (monthBranchIndex - 2 + 12) % 12;
+  var monthStemIndex = (yinMonthStem + offsetFromYin) % 10;
+
+  // 干支组合 60 一循环，直接找满足「干 = monthStemIndex 且 支 = monthBranchIndex」的序号。
+  // 不用 while 递增是为了避免步长与模数不互质时死循环。
+  for (var i = 0; i < 60; i++) {
+    if (i % 10 === monthStemIndex && i % 12 === monthBranchIndex) {
+      return i;
+    }
+  }
+  return 0;
+}
+
+/**
+ * 计算月亮视黄经（简化 ELP，误差约 0.3°，对应月相时间误差数小时）。
+ * @param {number} jd - 儒略日
+ * @returns {number} 月亮视黄经，0–360 度
+ */
+function getMoonLongitude(jd) {
+  var t = (jd - 2451545.0) / 36525;
+
+  var meanLongitude = 218.3164477 + 481267.88123421 * t - 0.0015786 * t * t;
+  var elongation = 297.8501921 + 445267.1114034 * t - 0.0018819 * t * t;
+  var sunAnomaly = 357.5291092 + 35999.0502909 * t - 0.0001536 * t * t;
+  var moonAnomaly = 134.9633964 + 477198.8675055 * t + 0.0087414 * t * t;
+  var latitudeArg = 93.272095 + 483202.0175233 * t - 0.0036539 * t * t;
+
+  var longitude =
+    meanLongitude +
+    6.289 * Math.sin(toRadians(moonAnomaly)) +
+    1.274 * Math.sin(toRadians(2 * elongation - moonAnomaly)) +
+    0.658 * Math.sin(toRadians(2 * elongation)) +
+    0.214 * Math.sin(toRadians(2 * moonAnomaly)) -
+    0.186 * Math.sin(toRadians(sunAnomaly)) -
+    0.114 * Math.sin(toRadians(2 * latitudeArg));
+
+  return normalizeDegrees(longitude);
+}
+
+/**
+ * 计算月相相位角。
+ * @param {number} jd - 儒略日
+ * @returns {number} 0–360，0 = 朔（新月），180 = 望（满月）
+ */
+function getMoonPhaseAngle(jd) {
+  return normalizeDegrees(getMoonLongitude(jd) - getSunLongitude(jd));
+}
+
+/**
+ * 由相位角取月相名称。
+ * @param {number} phase - 相位角，0–360
+ * @returns {string} 月相中文名
+ */
+function getMoonPhaseName(phase) {
+  var name = MOON_PHASES[0].name;
+  for (var i = 0; i < MOON_PHASES.length; i++) {
+    if (phase >= MOON_PHASES[i].at) {
+      name = MOON_PHASES[i].name;
+    }
+  }
+  return name;
+}
+
+/**
+ * 由相位角计算被照亮的比例，用于绘制月相进度条。
+ * @param {number} phase - 相位角，0–360
+ * @returns {number} 0–1
+ */
+function getMoonIllumination(phase) {
+  return (1 - Math.cos(toRadians(phase))) / 2;
+}
+
+/**
+ * 计算距离下一个节气还有多少天。
+ * 用迭代逼近求「太阳黄经到达下一个 15° 整倍数」的时刻，
+ * 比用日均速度折算更准——后者在近地点/远地点附近会差 1–2 天。
+ * @param {number} jd - 当前儒略日
+ * @returns {number} 剩余天数，向上取整（0 表示就在今天）
+ */
+function getDaysToNextTerm(jd) {
+  var longitude = normalizeDegrees(getSunLongitude(jd));
+  var target = (Math.floor(longitude / 15) + 1) * 15;
+
+  var guess = jd;
+  for (var i = 0; i < 10; i++) {
+    var current = getSunLongitude(guess);
+    var remaining = target - current;
+
+    // 关键：差值必须归一到 [-180, 180]。
+    // 否则当前黄经略微冲过目标时，会算出接近 360° 的差值，
+    // 让迭代直接跳出去一整年（曾因此得出「距节气 1472 天」）。
+    if (remaining > 180) remaining -= 360;
+    if (remaining < -180) remaining += 360;
+
+    if (Math.abs(remaining) < 0.001) break;
+    guess += remaining / 0.98565;
+  }
+
+  return Math.max(0, Math.round(guess - jd));
+}
+
+/**
+ * 汇总某一天的全部历法信息。
+ * 这是 UI 与选号算法共用的唯一数据源，避免两处各算一遍导致不一致。
+ * @param {Date} date - 本地日期对象
+ * @returns {{
+ *   dateKey: string, year: number, month: number, day: number, weekday: number,
+ *   weekdayName: string, solarTermIndex: number, solarTermName: string,
+ *   daysToNextTerm: number, monthBranchIndex: number, dayStemIndex: number,
+ *   dayBranchIndex: number, dayGanzhiIndex: number, yearGanzhiIndex: number,
+ *   monthGanzhiIndex: number, yearGanzhiText: string, monthGanzhiText: string,
+ *   dayGanzhiText: string, spiritIndex: number, spiritName: string,
+ *   elementIndex: number, elementName: string, chongBranchIndex: number,
+ *   chongZodiac: string, shaDirection: string, moonPhase: number,
+ *   moonPhaseName: string, moonIllumination: number
+ * }}
+ */
+function computeAlmanac(date) {
+  var year = date.getFullYear();
+  var month = date.getMonth() + 1;
+  var day = date.getDate();
+
+  var jd = toJulianDay(year, month, day) - 0.5; // 取当日 0 时
+  var solarTermIndex = getSolarTermIndex(jd);
+  var monthBranchIndex = getMonthBranchIndex(jd);
+  var yearGanzhiIndex = getYearGanzhiIndex(jd, year, month);
+  var monthGanzhiIndex = getMonthGanzhiIndex(yearGanzhiIndex, monthBranchIndex);
+  var dayGanzhiIndex = getDayGanzhiIndex(toJulianDay(year, month, day));
+
+  var dayStemIndex = dayGanzhiIndex % 10;
+  var dayBranchIndex = dayGanzhiIndex % 12;
+
+  // 建除：当日地支与月建相同为「建」，顺推十二神
+  var spiritIndex = (dayBranchIndex - monthBranchIndex + 12) % 12;
+
+  // 节气与下一个节气的距离
+  var daysToNextTerm = getDaysToNextTerm(jd);
+
+  var moonPhase = getMoonPhaseAngle(jd);
+
+  return {
+    dateKey: padNumber(year, 4) + "-" + padNumber(month, 2) + "-" + padNumber(day, 2),
+    year: year,
+    month: month,
+    day: day,
+    weekday: date.getDay(),
+    weekdayName: ["日", "一", "二", "三", "四", "五", "六"][date.getDay()],
+    solarTermIndex: solarTermIndex,
+    solarTermName: SOLAR_TERMS[solarTermIndex],
+    daysToNextTerm: daysToNextTerm,
+    monthBranchIndex: monthBranchIndex,
+    dayStemIndex: dayStemIndex,
+    dayBranchIndex: dayBranchIndex,
+    dayGanzhiIndex: dayGanzhiIndex,
+    yearGanzhiIndex: yearGanzhiIndex,
+    monthGanzhiIndex: monthGanzhiIndex,
+    yearGanzhiText: HEAVENLY_STEMS[yearGanzhiIndex % 10] + EARTHLY_BRANCHES[yearGanzhiIndex % 12],
+    monthGanzhiText: HEAVENLY_STEMS[monthGanzhiIndex % 10] + EARTHLY_BRANCHES[monthGanzhiIndex % 12],
+    dayGanzhiText: HEAVENLY_STEMS[dayStemIndex] + EARTHLY_BRANCHES[dayBranchIndex],
+    spiritIndex: spiritIndex,
+    spiritName: TWELVE_SPIRITS[spiritIndex].name,
+    elementIndex: Math.floor(dayStemIndex / 2),
+    elementName: FIVE_ELEMENTS[Math.floor(dayStemIndex / 2)],
+    chongBranchIndex: (dayBranchIndex + 6) % 12,
+    chongZodiac: ZODIACS[(dayBranchIndex + 6) % 12],
+    shaDirection: SHA_DIRECTIONS[dayBranchIndex],
+    moonPhase: moonPhase,
+    moonPhaseName: getMoonPhaseName(moonPhase),
+    moonIllumination: getMoonIllumination(moonPhase)
+  };
+}
+
+/** 数字补零 */
+function padNumber(value, width) {
+  var text = String(value);
+  while (text.length < width) text = "0" + text;
+  return text;
+}
+
+/* ==================================================================
+ * 三、选号算法
+ * 设计目标：确定性 + 可解释。
+ * 同一天 + 同一序号 → 同一组号码；换序号则完全不同。
+ * ================================================================== */
+
+/**
+ * FNV-1a 字符串哈希，把天象文本压成 32 位整数种子。
+ * @param {string} text - 待哈希的字符串
+ * @returns {number} 无符号 32 位整数
+ */
+function hashSeed(text) {
+  var hash = 2166136261;
+  for (var i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * mulberry32 伪随机数生成器。
+ * 选它是因为短小、分布均匀，且同一种子序列完全可复现。
+ * @param {number} seed - 32 位整数种子
+ * @returns {function(): number} 每次调用返回 [0, 1) 的浮点数
+ */
+function createRandom(seed) {
+  var state = seed;
+  return function nextRandom() {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    var t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 按种子抽出一组双色球号码。
+ * 红球用 Fisher–Yates 洗牌后取前 6 个并升序，蓝球独立抽取。
+ * @param {string} basisText - 参与计算的天象文本（干支 + 建除 + 五行 + 日期）
+ * @param {number} salt - 序号，用于「换一组」
+ * @returns {{ reds: number[], blue: number }} 红球升序数组与蓝球
+ */
+function drawNumbers(basisText, salt) {
+  var random = createRandom(hashSeed(basisText + "#" + salt));
+
+  var pool = [];
+  for (var i = SSQ_RULES.redMin; i <= SSQ_RULES.redMax; i++) {
+    pool.push(i);
+  }
+
+  for (var j = pool.length - 1; j > 0; j--) {
+    var k = Math.floor(random() * (j + 1));
+    var temp = pool[j];
+    pool[j] = pool[k];
+    pool[k] = temp;
+  }
+
+  var reds = pool.slice(0, SSQ_RULES.redCount).sort(function ascending(a, b) {
+    return a - b;
+  });
+  var blue = Math.floor(random() * SSQ_RULES.blueMax) + SSQ_RULES.blueMin;
+
+  return { reds: reds, blue: blue };
+}
+
+/**
+ * 生成一组号码及其「取号依据」文本。
+ * 依据文本同时作为算法种子，保证「显示什么就按什么算」。
+ * @param {object} almanac - computeAlmanac 的返回值
+ * @param {number} salt - 序号
+ * @returns {{ reds: number[], blue: number, basisText: string }} 号码与依据
+ */
+function generateDraw(almanac, salt) {
+  var basisText = [
+    almanac.dateKey,
+    almanac.yearGanzhiText,
+    almanac.monthGanzhiText,
+    almanac.dayGanzhiText,
+    almanac.spiritName,
+    almanac.elementName,
+    almanac.solarTermName
+  ].join("|");
+
+  var numbers = drawNumbers(basisText, salt);
+  return {
+    reds: numbers.reds,
+    blue: numbers.blue,
+    basisText: basisText
+  };
+}
+
+/**
+ * 判定一组号码对照开奖结果中了几等奖。
+ * 奖级依据《中国福利彩票双色球游戏规则》。
+ * @param {number[]} pickReds - 投注红球，6 个
+ * @param {number} pickBlue - 投注蓝球
+ * @param {number[]} drawReds - 开奖红球，6 个
+ * @param {number} drawBlue - 开奖蓝球
+ * @returns {{ hitReds: number, hitBlue: boolean, prizeName: string, prizeAmount: number }}
+ *          prizeAmount 为 0 表示未中奖
+ */
+function evaluatePrize(pickReds, pickBlue, drawReds, drawBlue) {
+  var hitReds = pickReds.filter(function countMatch(n) {
+    return drawReds.indexOf(n) !== -1;
+  }).length;
+  var hitBlue = pickBlue === drawBlue;
+
+  var prizeName = "";
+  var prizeAmount = 0;
+
+  if (hitReds === 6 && hitBlue) {
+    prizeName = "一等奖";
+    prizeAmount = -1; // 浮动奖金，用 -1 标记
+  } else if (hitReds === 6) {
+    prizeName = "二等奖";
+    prizeAmount = -1;
+  } else if (hitReds === 5 && hitBlue) {
+    prizeName = "三等奖";
+    prizeAmount = 3000;
+  } else if (hitReds === 5 || (hitReds === 4 && hitBlue)) {
+    prizeName = "四等奖";
+    prizeAmount = 200;
+  } else if (hitReds === 4 || (hitReds === 3 && hitBlue)) {
+    prizeName = "五等奖";
+    prizeAmount = 10;
+  } else if (hitBlue) {
+    prizeName = "六等奖";
+    prizeAmount = 5;
+  }
+
+  return {
+    hitReds: hitReds,
+    hitBlue: hitBlue,
+    prizeName: prizeName,
+    prizeAmount: prizeAmount
+  };
+}
+
+/* ==================================================================
+ * 四、状态与存储
+ * ================================================================== */
+
+/** 全局状态，UI 的唯一真相来源 */
+var state = {
+  activeDate: startOfToday(),
+  almanac: null,
+  salt: 0,
+  savedNumbers: [],
+  lastDraw: {
+    issue: "",
+    reds: ["", "", "", "", "", ""],
+    blue: "",
+    date: "",
+    week: "",
+    sales: 0,
+    pool: 0
+  },
+  amapKey: "",
+  mapInstance: null,
+  /** 已确认的那组号：{ dateKey, salt, reds, blue, drawDate, result } */
+  confirmed: null
+};
+
+function startOfToday() {
+  var now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+/** 安全读取 JSON，损坏时回退默认值，避免整页白屏 */
+function readStorage(key, fallback) {
+  try {
+    var raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch (error) {
+    // 存储被禁用或内容损坏：返回默认值即可，不影响本次使用
+    return fallback;
+  }
+}
+
+/** 安全写入，配额满或隐私模式下忽略失败 */
+function writeStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    showToast("本地存储不可用，本次修改不会保存");
+    return false;
+  }
+}
+
+/* ==================================================================
+ * 五、渲染
+ * ================================================================== */
+
+var dom = {};
+
+function cacheDom() {
+  var ids = [
+    "skyDate", "skySub", "ganzhiRow", "spiritName", "spiritDesc", "spiritBadge",
+    "termName", "termNote", "dayMaster", "dayMasterNote", "chongSha",
+    "moonName", "moonNote", "moonFill", "yiItems", "jiItems", "yijiSource",
+    "mainBalls", "numsBasis", "savedList", "savedCount",
+    "confirmPanel", "confirmBadge", "confirmText", "btnConfirm", "btnUnconfirm",
+    "issueInput", "lastReds", "lastBlue", "checkResult", "mapBox", "shopList",
+    "drawStatus", "drawNote", "btnSyncDraw", "drawIssue", "drawDate", "drawStats",
+    "lastDrawBalls", "btnEditDraw", "drawEditBody",
+    "mapConfigBody", "amapKeyInput", "toast", "btnPrevDay", "btnNextDay"
+  ];
+  ids.forEach(function bindId(id) {
+    dom[id] = document.getElementById(id);
+  });
+}
+
+/** 渲染天象卡 */
+function renderSky() {
+  var a = state.almanac;
+
+  dom.skyDate.textContent = a.month + " 月 " + a.day + " 日";
+  dom.skySub.textContent =
+    a.year + " 年 · 星期" + a.weekdayName +
+    " · 距下一个节气 " + a.daysToNextTerm + " 天";
+
+  dom.ganzhiRow.innerHTML = [
+    { text: a.yearGanzhiText + "年", strong: false },
+    { text: a.monthGanzhiText + "月", strong: false },
+    { text: a.dayGanzhiText + "日", strong: true }
+  ].map(function toPill(item) {
+    return '<span class="ganzhi-pill' + (item.strong ? " ganzhi-pill--day" : "") + '">' + item.text + "</span>";
+  }).join("");
+
+  var spirit = TWELVE_SPIRITS[a.spiritIndex];
+  dom.spiritName.textContent = spirit.name + "日";
+  dom.spiritDesc.textContent = spirit.desc;
+
+  if (spirit.good === true) {
+    dom.spiritBadge.textContent = "黄道 · 可用";
+    dom.spiritBadge.className = "spirit-badge spirit-badge--good";
+  } else if (spirit.good === false) {
+    dom.spiritBadge.textContent = "黑道 · 宜守";
+    dom.spiritBadge.className = "spirit-badge spirit-badge--bad";
+  } else {
+    dom.spiritBadge.textContent = "平常日";
+    dom.spiritBadge.className = "spirit-badge";
+  }
+
+  dom.termName.textContent = a.solarTermName;
+  dom.termNote.textContent = a.daysToNextTerm + " 天后交下一个节气";
+
+  dom.dayMaster.textContent = a.dayGanzhiText.charAt(0) + a.elementName;
+  dom.dayMasterNote.textContent = "日干五行属" + a.elementName;
+
+  dom.chongSha.textContent = "冲" + a.chongZodiac + " · 煞" + a.shaDirection;
+
+  dom.moonName.textContent = a.moonPhaseName;
+  dom.moonNote.textContent = "月面被照亮 " + Math.round(a.moonIllumination * 100) + "%";
+  dom.moonFill.style.width = Math.round((a.moonPhase / 360) * 100) + "%";
+
+  // 宜忌
+  var yiji = SPIRIT_YIJI[a.spiritIndex];
+  dom.yijiSource.textContent = "依「" + spirit.name + "日」";
+  dom.yiItems.innerHTML = yiji.yi.map(function toChip(text) {
+    return '<span class="yiji-item">' + text + "</span>";
+  }).join("");
+  dom.jiItems.innerHTML = yiji.ji.map(function toChip(text) {
+    return '<span class="yiji-item">' + text + "</span>";
+  }).join("");
+}
+
+/** 渲染单个号码球 */
+function ballHtml(number, type, small) {
+  var cls = "ball ball--" + type + (small ? " ball--sm" : "");
+  var text = String(number);
+  if (number < 10) text = "0" + number;
+  return '<span class="' + cls + '">' + text + "</span>";
+}
+
+/** 渲染今日号码（每天固定一组，换组靠「换一组」加序号） */
+function renderNumbers() {
+  var main = generateDraw(state.almanac, state.salt);
+
+  dom.mainBalls.innerHTML =
+    main.reds.map(function toRed(n) {
+      return ballHtml(n, "red", false);
+    }).join("") +
+    '<span class="ball-sep"></span>' +
+    ballHtml(main.blue, "blue", false);
+
+  dom.numsBasis.innerHTML =
+    "取号依据：<b>" + state.almanac.dayGanzhiText + "日</b> · " +
+    "<b>" + state.almanac.spiritName + "日</b> · " +
+    "<b>" + state.almanac.elementName + "</b> · " +
+    state.almanac.solarTermName +
+    "<br>当日干支、建除、五行、节气共同入算，同日同序号结果固定";
+
+  /* 号码变了，确认区的「是否仍是这组」要跟着刷新 */
+  renderConfirmView();
+}
+
+/** 渲染已保存号码 */
+function renderSaved() {
+  var list = state.savedNumbers;
+  dom.savedCount.textContent = list.length + " 组";
+
+  if (!list.length) {
+    dom.savedList.innerHTML =
+      '<div class="empty">还没有收藏的号码<br><span style="font-size:11px;">点上方「收下这组」存进来</span></div>';
+    return;
+  }
+
+  dom.savedList.innerHTML = list.map(function toItem(item, index) {
+    var balls = item.reds.map(function toRed(n) { return ballHtml(n, "red", true); }).join("") +
+      ballHtml(item.blue, "blue", true);
+
+    var issueText = item.issue
+      ? "第" + item.issue + "期"
+      : item.drawDate
+        ? "待 " + String(item.drawDate).slice(5).replace("-", "/") + " 开奖"
+        : "未注期号";
+
+    return (
+      '<div class="saved-item">' +
+      '<div class="saved-meta">' + item.dateLabel + "<br>" + issueText + "</div>" +
+      '<div class="saved-balls">' + balls + "</div>" +
+      '<button class="saved-del" type="button" data-remove="' + index + '" aria-label="删除">×</button>' +
+      "</div>"
+    );
+  }).join("");
+}
+
+/** 渲染上期开奖录入框（手动填写态） */
+function renderLastDrawInputs() {
+  dom.issueInput.value = state.lastDraw.issue;
+  dom.lastBlue.value = state.lastDraw.blue;
+
+  dom.lastReds.innerHTML = state.lastDraw.reds.map(function toInput(value, index) {
+    return (
+      '<div style="flex:1">' +
+      '<input class="input input--num" type="text" inputmode="numeric" maxlength="2" ' +
+      'data-red-index="' + index + '" value="' + value + '" placeholder="' + (index + 1) + '">' +
+      "</div>"
+    );
+  }).join("");
+}
+
+/** 缺号时的虚线空球，保持球位不错乱 */
+function emptyBallHtml() {
+  return '<span class="ball ball--empty">·</span>';
+}
+
+/** 奖池、销量都是九位数，压成「亿 / 万」才看得懂 */
+function formatMoney(yuan) {
+  var amount = Number(yuan) || 0;
+  if (amount <= 0) return "";
+  if (amount >= 100000000) return (amount / 100000000).toFixed(2) + " 亿";
+  if (amount >= 10000) return (amount / 10000).toFixed(2) + " 万";
+  return String(amount);
+}
+
+/** 渲染开奖号码球：6 红 + 1 蓝，缺位用空球占位 */
+function renderLastDrawBalls() {
+  if (!dom.lastDrawBalls) return;
+
+  var html = "";
+  for (var i = 0; i < SSQ_RULES.redCount; i++) {
+    var red = parseInt(state.lastDraw.reds[i], 10);
+    html += isNaN(red) ? emptyBallHtml() : ballHtml(red, "red", false);
+  }
+
+  html += '<span class="ball-sep"></span>';
+
+  var blue = parseInt(state.lastDraw.blue, 10);
+  html += isNaN(blue) ? emptyBallHtml() : ballHtml(blue, "blue", false);
+
+  dom.lastDrawBalls.innerHTML = html;
+}
+
+/** 渲染期号、开奖日期、奖池与销量 */
+function renderDrawMeta() {
+  var draw = state.lastDraw;
+
+  if (dom.drawIssue) {
+    dom.drawIssue.textContent = draw.issue ? "第 " + draw.issue + " 期" : "第 —— 期";
+  }
+
+  if (dom.drawDate) {
+    var bits = [];
+    if (draw.date) bits.push(String(draw.date).replace(/-/g, "/"));
+    if (draw.week) bits.push("周" + String(draw.week).replace(/^周/, ""));
+    dom.drawDate.textContent = bits.length ? bits.join(" ") : "尚无开奖数据";
+  }
+
+  if (dom.drawStats) {
+    var parts = [];
+    if (draw.pool) parts.push("奖池 " + formatMoney(draw.pool));
+    if (draw.sales) parts.push("销量 " + formatMoney(draw.sales));
+    dom.drawStats.textContent = parts.length ? parts.join("　·　") : "";
+  }
+}
+
+/** 开奖卡整体重绘 */
+function renderLastDraw() {
+  renderLastDrawInputs();
+  renderLastDrawBalls();
+  renderDrawMeta();
+}
+
+/* ==================================================================
+ * 六、交互
+ * ================================================================== */
+
+function shiftDate(days) {
+  var next = new Date(state.activeDate.getTime());
+  next.setDate(next.getDate() + days);
+  state.activeDate = next;
+  refreshAll();
+}
+
+function refreshAll() {
+  state.almanac = computeAlmanac(state.activeDate);
+  renderSky();
+  renderNumbers();
+}
+
+function showToast(message) {
+  dom.toast.textContent = message;
+  dom.toast.classList.add("toast--on");
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(function hide() {
+    dom.toast.classList.remove("toast--on");
+  }, 1800);
+}
+
+/** 复制文本，兼容无 Clipboard API 的环境 */
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(function onOk() {
+      showToast("已复制");
+    }).catch(function onFail() {
+      fallbackCopy(text);
+    });
+    return;
+  }
+  fallbackCopy(text);
+}
+
+function fallbackCopy(text) {
+  var area = document.createElement("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  try {
+    document.execCommand("copy");
+    showToast("已复制");
+  } catch (error) {
+    showToast("复制失败，请手动选择");
+  }
+  document.body.removeChild(area);
+}
+
+/** 把当前主号格式化成可复制的文本 */
+function currentDrawText() {
+  var draw = generateDraw(state.almanac, state.salt);
+  var reds = draw.reds.map(function pad(n) { return n < 10 ? "0" + n : String(n); }).join(" ");
+  var blue = draw.blue < 10 ? "0" + draw.blue : String(draw.blue);
+  return state.almanac.dateKey + " " + state.almanac.dayGanzhiText + "日 " +
+    state.almanac.spiritName + "日\n红球 " + reds + "　蓝球 " + blue;
+}
+
+/** 保存当前主号 */
+function saveCurrentDraw(options) {
+  var silent = options && options.silent;
+  var draw = generateDraw(state.almanac, state.salt);
+  var a = state.almanac;
+
+  var duplicate = state.savedNumbers.some(function isSame(item) {
+    return item.dateKey === a.dateKey &&
+      item.blue === draw.blue &&
+      item.reds.join(",") === draw.reds.join(",");
+  });
+
+  if (duplicate) {
+    if (!silent) showToast("这组还在「我的号码」里");
+    return false;
+  }
+
+  state.savedNumbers.unshift({
+    dateKey: a.dateKey,
+    dateLabel: a.month + "/" + a.day,
+    reds: draw.reds,
+    blue: draw.blue,
+    issue: "",
+    drawDate: (options && options.drawDate) || "",
+    savedAt: Date.now()
+  });
+
+  state.savedNumbers = state.savedNumbers.slice(0, 50);
+  writeStorage(STORAGE_KEYS.savedNumbers, state.savedNumbers);
+  renderSaved();
+  if (!silent) showToast("已收下");
+  return true;
+}
+
+/* ==================================================================
+ * 六、确认号码与开奖比对
+ * 逻辑：确认时算好这组号等的是哪一期（最近的未来开奖日），
+ * 之后不管手动点还是自动同步，只要拿到那期结果就立刻判奖。
+ * ================================================================== */
+
+/** 双色球开奖日：周日、周二、周四 */
+var DRAW_WEEKDAYS = [0, 2, 4];
+var DRAW_CLOCK = "21:15";
+var WEEKDAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+function dateKeyOf(date) {
+  return date.getFullYear() + "-" + padNumber(date.getMonth() + 1, 2) + "-" + padNumber(date.getDate(), 2);
+}
+
+function parseDateKey(key) {
+  var parts = String(key || "").split("-");
+  if (parts.length !== 3) return null;
+  var date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function isDrawWeekday(date) {
+  return DRAW_WEEKDAYS.indexOf(date.getDay()) !== -1;
+}
+
+/** 从某天起（含当天）最近的一个开奖日 */
+function nextDrawDate(from) {
+  var date = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (var i = 0; i < 8; i++) {
+    if (isDrawWeekday(date)) return date;
+    date.setDate(date.getDate() + 1);
+  }
+  return date;
+}
+
+/**
+ * 这组号等的是哪一期。
+ * 开奖日当天算当晚这期（开奖前等结果，开奖后可立刻比对）；
+ * 其余日子算下一个开奖日。翻到未来日期时以该日期为基准。
+ */
+function targetDrawDateKey(activeDate) {
+  var today = startOfToday();
+  var base = activeDate && activeDate.getTime() > today.getTime() ? activeDate : today;
+  return dateKeyOf(nextDrawDate(base));
+}
+
+/** 把日期键说成人话：10 月 29 日 周四 */
+function drawDateLabel(key) {
+  var date = parseDateKey(key);
+  if (!date) return "";
+  return (date.getMonth() + 1) + " 月 " + date.getDate() + " 日 " + WEEKDAY_NAMES[date.getDay()];
+}
+
+/** 确认当前这组号 */
+function confirmDraw() {
+  var a = state.almanac;
+  var draw = generateDraw(a, state.salt);
+
+  var same =
+    state.confirmed &&
+    state.confirmed.dateKey === a.dateKey &&
+    state.confirmed.reds.join(",") === draw.reds.join(",") &&
+    state.confirmed.blue === draw.blue;
+
+  if (same) {
+    /* 同一组再点一次：重新判一遍，可能是刚开奖 */
+    evaluateConfirm();
+    if (state.confirmed.result) {
+      showToast(state.confirmed.result.prizeName ? "中奖了：" + state.confirmed.result.prizeName : "未中奖");
+    } else {
+      showToast("还是这组，等开奖");
+    }
+    return;
+  }
+
+  state.confirmed = {
+    dateKey: a.dateKey,
+    salt: state.salt,
+    reds: draw.reds.slice(),
+    blue: draw.blue,
+    drawDate: targetDrawDateKey(state.activeDate),
+    result: null
+  };
+  writeStorage(STORAGE_KEYS.confirmed, state.confirmed);
+
+  /* 同时留一份底到「我的号码」，之后好回溯 */
+  saveCurrentDraw({ silent: true, drawDate: state.confirmed.drawDate });
+
+  evaluateConfirm();
+  if (!state.confirmed.result) {
+    showToast("还没开奖，等 " + drawDateLabel(state.confirmed.drawDate) + " " + DRAW_CLOCK);
+  }
+}
+
+/** 撤销确认 */
+function unconfirmDraw() {
+  state.confirmed = null;
+  writeStorage(STORAGE_KEYS.confirmed, null);
+  renderConfirmView();
+  showToast("已撤销");
+}
+
+/**
+ * 判断已确认的号有没有结果，有就冻存下来。
+ * 只在 lastDraw 恰好是目标那一期时判奖——期号往前走了就无法回溯。
+ */
+function evaluateConfirm() {
+  var c = state.confirmed;
+  if (!c) {
+    renderConfirmView();
+    return;
+  }
+
+  var draw = state.lastDraw;
+  if (c.result || !draw.date || !draw.issue) {
+    renderConfirmView();
+    return;
+  }
+
+  if (draw.date === c.drawDate) {
+    var drawReds = (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); });
+    var drawBlue = parseInt(draw.blue, 10);
+
+    var usable = drawReds.length === SSQ_RULES.redCount &&
+      drawReds.every(function inRange(n) { return !isNaN(n); }) &&
+      !isNaN(drawBlue);
+
+    if (!usable) {
+      renderConfirmView();
+      return;
+    }
+
+    var prize = evaluatePrize(c.reds, c.blue, drawReds, drawBlue);
+    c.result = {
+      issue: draw.issue,
+      date: draw.date,
+      week: draw.week || "",
+      hitReds: prize.hitReds,
+      hitBlue: prize.hitBlue,
+      prizeName: prize.prizeName,
+      prizeAmount: prize.prizeAmount
+    };
+    writeStorage(STORAGE_KEYS.confirmed, c);
+    backfillSavedIssue(c);
+    showToast(prize.prizeName ? "中奖了：" + prize.prizeName : "第 " + draw.issue + " 期未中奖");
+  }
+
+  renderConfirmView();
+}
+
+/** 这一期的结果按理说到点了没：当天 21:30 之后，或日期已过 */
+function drawResultShouldBeOut(dateKey) {
+  var target = parseDateKey(dateKey);
+  if (!target) return false;
+  var now = new Date();
+  var todayKey = dateKeyOf(now);
+  if (dateKey === todayKey) {
+    return now.getHours() * 60 + now.getMinutes() >= 21 * 60 + 30;
+  }
+  return dateKey < todayKey;
+}
+
+/**
+ * 判奖后把期号回填到「我的号码」里对应的那条记录。
+ * 收藏时还不知道期号，这里补上，事后能对上账。
+ */
+function backfillSavedIssue(c) {
+  var touched = false;
+
+  state.savedNumbers.forEach(function fill(item) {
+    if (item.issue) return;
+    if (item.dateKey !== c.dateKey) return;
+    if ((item.reds || []).join(",") !== c.reds.join(",")) return;
+    if (Number(item.blue) !== Number(c.blue)) return;
+    item.issue = c.result.issue;
+    item.drawDate = c.result.date;
+    touched = true;
+  });
+
+  if (touched) {
+    writeStorage(STORAGE_KEYS.savedNumbers, state.savedNumbers);
+    renderSaved();
+  }
+}
+
+/** 渲染确认区：未开奖 / 中奖 / 未中奖 三态 */
+function renderConfirmView() {
+  if (!dom.confirmPanel || !state.almanac) return;
+
+  var c = state.confirmed;
+  var a = state.almanac;
+
+  /* 没有确认，或翻到了别的日期，先收起面板 */
+  if (!c || c.dateKey !== a.dateKey) {
+    dom.confirmPanel.hidden = true;
+    if (dom.btnConfirm) dom.btnConfirm.textContent = "确认这组";
+    return;
+  }
+
+  dom.confirmPanel.hidden = false;
+
+  var current = generateDraw(a, state.salt);
+  var sameNumbers =
+    c.reds.join(",") === current.reds.join(",") && c.blue === current.blue;
+
+  var cls = "confirm-panel";
+  var badge = "未开奖";
+  var text = "";
+
+  if (c.result) {
+    var r = c.result;
+    var amountText = r.prizeAmount === -1
+      ? "奖金浮动，以官方公告为准"
+      : "奖金 " + r.prizeAmount + " 元";
+    var head = "第 <b>" + r.issue + "</b> 期 · 红球中 <b>" + r.hitReds +
+      "</b> 个，蓝球" + (r.hitBlue ? "<b>命中</b>" : "未中");
+
+    if (r.prizeName) {
+      cls += " confirm-panel--win";
+      badge = "中奖";
+      text = head + "　→　<b>" + r.prizeName + "</b>（" + amountText + "）";
+    } else {
+      cls += " confirm-panel--lose";
+      badge = "未中奖";
+      text = head + "　→　未中奖<small>双色球单注中奖概率约 1/1772 万，没中很正常。</small>";
+    }
+  } else if (c.drawDate && state.lastDraw.date && state.lastDraw.date > c.drawDate) {
+    cls += " confirm-panel--muted";
+    badge = "已过期";
+    text = "这期已经过去了，但手上只剩更新的开奖数据，没法回查。下次开奖日再确认一次。";
+  } else {
+    cls += " confirm-panel--pending";
+    badge = "未开奖";
+    var label = drawDateLabel(c.drawDate);
+    if (drawResultShouldBeOut(c.drawDate)) {
+      text = "<b>" + label + "</b> 这期应该已经开奖了，但还没拿到官网数据。" +
+        "点下面「立即同步」可以手动拉一次。";
+    } else {
+      text = "还没开奖。这组号等 <b>" + label + " " + DRAW_CLOCK +
+        "</b> 开奖，结果公布后这里自动比对，不用再点。";
+    }
+  }
+
+  if (!sameNumbers) {
+    text += "<small>以上是你确认的那组（" +
+      c.reds.map(function pad(n) { return n < 10 ? "0" + n : String(n); }).join(" ") +
+      " ｜ " + (c.blue < 10 ? "0" + c.blue : String(c.blue)) +
+      "），当前显示的是换过的新号码。</small>";
+  }
+
+  dom.confirmPanel.className = cls;
+  dom.confirmBadge.textContent = badge;
+  dom.confirmText.innerHTML = text;
+  dom.btnConfirm.textContent = sameNumbers ? "已确认" : "确认这组";
+}
+
+
+/** 比对今日主号与上期开奖 */
+function checkAgainstLastDraw() {
+  if (!state.lastDraw.blue && !state.lastDraw.reds.join("")) {
+    dom.checkResult.className = "result result--none";
+    dom.checkResult.textContent = "还没有开奖数据。先点「立即同步」，或在下面手动填写。";
+    return;
+  }
+
+  var reds = state.lastDraw.reds
+    .map(function toNumber(text) { return parseInt(text, 10); })
+    .filter(function isValid(n) { return !isNaN(n); });
+  var blue = parseInt(state.lastDraw.blue, 10);
+
+  var allRedsFilled = reds.length === SSQ_RULES.redCount;
+  var redsInRange = reds.every(function inRange(n) {
+    return n >= SSQ_RULES.redMin && n <= SSQ_RULES.redMax;
+  });
+  var blueValid = !isNaN(blue) && blue >= SSQ_RULES.blueMin && blue <= SSQ_RULES.blueMax;
+
+  if (!allRedsFilled || !redsInRange) {
+    dom.checkResult.className = "result result--none";
+    dom.checkResult.textContent = "请把 6 个红球填完整（1–33，不可重复）。";
+    return;
+  }
+  if (!blueValid) {
+    dom.checkResult.className = "result result--none";
+    dom.checkResult.textContent = "蓝球请填 1–16。";
+    return;
+  }
+
+  var uniqueReds = new Set(reds);
+  if (uniqueReds.size !== SSQ_RULES.redCount) {
+    dom.checkResult.className = "result result--none";
+    dom.checkResult.textContent = "红球有重复，请检查。";
+    return;
+  }
+
+  var draw = generateDraw(state.almanac, state.salt);
+  var prize = evaluatePrize(draw.reds, draw.blue, reds, blue);
+
+  if (prize.prizeName) {
+    var amountText = prize.prizeAmount === -1 ? "奖金浮动，以官方公告为准" : "奖金 " + prize.prizeAmount + " 元";
+    dom.checkResult.className = "result result--win";
+    dom.checkResult.innerHTML =
+      "红球中 <b>" + prize.hitReds + "</b> 个，蓝球" + (prize.hitBlue ? "<b>命中</b>" : "未中") +
+      "　→　<b>" + prize.prizeName + "</b>（" + amountText + "）";
+  } else {
+    dom.checkResult.className = "result result--lose";
+    dom.checkResult.innerHTML =
+      "红球中 <b>" + prize.hitReds + "</b> 个，蓝球" + (prize.hitBlue ? "命中" : "未中") +
+      "　→　未中奖。双色球单注中奖概率约 1/1772 万，这是正常的。";
+  }
+}
+
+/* ==================================================================
+ * 七、开奖数据同步
+ * 数据取自中国福彩官网，经 server.js 同源转发，绕开浏览器跨域限制。
+ * 拉不到就退回手动填写，不阻塞任何本地功能。
+ * ================================================================== */
+
+/** 常规同步间隔：一期结果不会变，8 分钟足够 */
+var DRAW_REFRESH_MS = 8 * 60 * 1000;
+/** 开奖时段加密到 2 分钟，赶在结果公布后尽快刷新 */
+var DRAW_HOT_MS = 2 * 60 * 1000;
+var lastDrawSyncAt = 0;
+var drawSyncInFlight = false;
+
+/** 数字补零，红球蓝球统一两位显示 */
+function pad2(value) {
+  var n = parseInt(value, 10);
+  if (isNaN(n)) return "";
+  return n < 10 ? "0" + n : String(n);
+}
+
+/** 双色球周二、四、日 21:15 开奖；21:15–22:15 视为结果可能已公布的时段 */
+function isDrawWindow() {
+  var now = new Date();
+  var day = now.getDay();
+  if (day !== 0 && day !== 2 && day !== 4) return false;
+  var minutes = now.getHours() * 60 + now.getMinutes();
+  return minutes >= 21 * 60 + 15 && minutes <= 22 * 60 + 15;
+}
+
+function setDrawStatus(kind, text) {
+  if (!dom.drawStatus) return;
+  dom.drawStatus.textContent = text;
+  dom.drawStatus.style.color =
+    kind === "ok" ? "var(--ok)"
+      : kind === "error" ? "var(--danger)"
+        : kind === "warn" ? "var(--warn)"
+          : "";
+}
+
+/** 把接口数据落到状态和界面上 */
+function applyDrawData(data, stale, meta) {
+  var reds = (data.reds || []).map(pad2);
+  var blue = pad2(data.blue);
+  if (reds.length !== SSQ_RULES.redCount || !blue) {
+    setDrawStatus("error", "数据异常");
+    return;
+  }
+
+  var previous = state.lastDraw;
+  var changed = previous.issue !== data.issue;
+  /* 号码没变就别重建整卡，否则用户正在手动填写时会被打断 */
+  var sameNumbers =
+    !changed &&
+    previous.reds.join(",") === reds.join(",") &&
+    previous.blue === blue;
+
+  state.lastDraw = {
+    issue: data.issue,
+    reds: reds,
+    blue: blue,
+    date: data.date || "",
+    week: data.week || "",
+    sales: data.sales || 0,
+    pool: data.pool || 0
+  };
+  writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
+
+  if (sameNumbers) {
+    renderDrawMeta();
+  } else {
+    renderLastDraw();
+  }
+
+  var now = new Date();
+  var timeText = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
+
+  /* GitHub Pages 读的是静态 data.json，没有 stale 标记，
+     用文件里的抓取时间判断有多旧——旧了就老实说，别装作刚同步过 */
+  var fetchedAt = null;
+  if (meta && meta.updatedAt) {
+    var parsed = new Date(meta.updatedAt);
+    if (!isNaN(parsed.getTime())) {
+      fetchedAt = parsed;
+      timeText = ("0" + parsed.getHours()).slice(-2) + ":" + ("0" + parsed.getMinutes()).slice(-2);
+    }
+  }
+  var tooOld = !!fetchedAt && Date.now() - fetchedAt.getTime() > 3 * 60 * 60 * 1000;
+  var isStale = !!stale || tooOld;
+
+  setDrawStatus(isStale ? "warn" : "ok", isStale ? "缓存" : "已同步");
+  if (dom.drawNote) {
+    var tail;
+    if (stale) {
+      tail = " · 官网暂时取不到，显示上次结果";
+    } else if (tooOld) {
+      tail = " · 抓取于 " + timeText + "，可能不是最新";
+    } else {
+      tail = " · " + timeText + (fetchedAt ? " 抓取" : " 同步");
+    }
+    dom.drawNote.textContent = "数据取自中国福彩官网 · " + (data.date || "") + " 开奖" + tail;
+  }
+
+  /* 期号变了说明是新一期，提示一下即可；判奖统一交给上方确认区 */
+  if (changed) {
+    showToast("已同步第 " + data.issue + " 期开奖");
+  }
+
+  /* 已确认的号：拿到目标那一期的结果就自动判奖 */
+  evaluateConfirm();
+}
+
+/**
+ * 数据源候选，按优先级尝试：
+ *   1. /api/latest      —— server.js 或云端 Node 版，实时
+ *   2. data.json        —— GitHub Pages 上由 Actions 定时生成，准实时
+ *   3. 本机 5173        —— 双击 index.html 时的兜底
+ * https 页面不去碰 http 本地地址，避免混合内容报错。
+ */
+function drawApiCandidates() {
+  var list = [];
+  var protocol = window.location.protocol;
+  var isLocalFile = protocol === "file:";
+
+  if (!isLocalFile) {
+    list.push("/api/latest");
+    /* 带时间戳绕过 Pages 的 CDN 缓存 */
+    list.push("data.json?t=" + Date.now());
+  }
+
+  if (isLocalFile || protocol === "http:") {
+    list.push("http://127.0.0.1:5173/api/latest");
+    list.push("http://localhost:5173/api/latest");
+  }
+
+  return list;
+}
+
+/** 单次请求，带 10 秒超时，避免卡死后续重试 */
+function requestDraw(url) {
+  return new Promise(function executor(resolve, reject) {
+    var controller = null;
+    try {
+      controller = window.AbortController ? new window.AbortController() : null;
+    } catch (error) {
+      controller = null;
+    }
+
+    var timer = controller
+      ? window.setTimeout(function abortSlow() { controller.abort(); }, 10000)
+      : null;
+
+    function stop() {
+      if (timer) window.clearTimeout(timer);
+    }
+
+    fetch(url, controller ? { signal: controller.signal, cache: "no-store" } : { cache: "no-store" })
+      .then(function toJson(response) {
+        if (response.ok === false) throw new Error("HTTP " + response.status);
+        return response.json();
+      })
+      .then(function onPayload(payload) {
+        stop();
+        resolve(payload);
+      })
+      .catch(function onError(error) {
+        stop();
+        reject(error);
+      });
+  });
+}
+
+/** 拉取最新一期开奖，失败时保留已有数据 */
+function syncLatestDraw(options) {
+  var manual = options && options.manual;
+  if (drawSyncInFlight) return;
+
+  var targets = drawApiCandidates();
+  var isLocalFile = window.location.protocol === "file:";
+
+  drawSyncInFlight = true;
+  if (manual) setDrawStatus("loading", "同步中…");
+
+  function attemptAt(index) {
+    if (index >= targets.length) {
+      return Promise.reject(new Error("所有数据源都取不到"));
+    }
+    return requestDraw(targets[index])
+      .then(function checkPayload(payload) {
+        /* 响应拿到了但内容不对（比如 Pages 上的 404 页面），换下一个源 */
+        if (!payload || !payload.ok || !payload.data) {
+          throw new Error((payload && payload.message) || "返回内容不是开奖数据");
+        }
+        return payload;
+      })
+      .catch(function retry() {
+        return attemptAt(index + 1);
+      });
+  }
+
+  function finish() {
+    drawSyncInFlight = false;
+  }
+
+  attemptAt(0)
+    .then(function onPayload(payload) {
+      finish();
+      lastDrawSyncAt = Date.now();
+      applyDrawData(payload.data, payload.stale, { updatedAt: payload.updatedAt });
+    })
+    .catch(function onError(error) {
+      finish();
+      setDrawStatus("error", isLocalFile ? "离线打开" : "同步失败");
+
+      var reason = error && error.message ? error.message : "网络异常";
+      var tip;
+      if (isLocalFile) {
+        tip = "本地文件直接打开时取不到数据。双击 start.bat 启动服务后刷新本页，就能自动同步；也可以在这里手动填写。";
+      } else if (isLocalHostPage()) {
+        tip = "取不到开奖数据（" + reason + "）。确认 start.bat 的窗口还开着；也可以在这里手动填写。";
+      } else {
+        tip = "取不到开奖数据（" + reason +
+          "）。线上这版靠定时任务生成数据，可能还没跑起来，也可能官网暂时取不到；稍后再点「立即同步」，或直接手动填写。";
+      }
+
+      if (dom.drawNote) {
+        dom.drawNote.textContent = tip;
+      }
+      if (dom.drawEditBody) {
+        dom.drawEditBody.classList.add("fold-body--open");
+      }
+      if (manual || isLocalFile) {
+        showToast(isLocalFile ? "未连上本地服务，可手动填写" : "同步失败，可手动填写");
+      }
+    });
+}
+
+/** 当前页面是不是跑在本机服务上（file:// 也算本机） */
+function isLocalHostPage() {
+  var host = window.location.hostname;
+  return host === "127.0.0.1" || host === "localhost" || host === "";
+}
+
+/** 定时器：常规 8 分钟一次，开奖时段 2 分钟一次；后台标签页跳过 */
+function startDrawSyncLoop() {
+  window.setInterval(function tick() {
+    if (document.hidden) return;
+    var wait = isDrawWindow() ? DRAW_HOT_MS : DRAW_REFRESH_MS;
+    if (Date.now() - lastDrawSyncAt >= wait) syncLatestDraw();
+  }, 30 * 1000);
+
+  document.addEventListener("visibilitychange", function onVisible() {
+    if (document.hidden) return;
+    if (Date.now() - lastDrawSyncAt >= DRAW_REFRESH_MS) syncLatestDraw();
+  });
+}
+
+/* ==================================================================
+ * 八、地图（高德 JS API，按需加载）
+ * ================================================================== */
+
+/**
+ * 动态加载高德 JS API。
+ * 只有用户填了 Key 才会走到这里，避免无谓的网络请求。
+ * @param {string} key - 高德 Web 端 JS API Key
+ * @returns {Promise<void>} 加载完成或失败
+ */
+function loadAmapScript(key) {
+  return new Promise(function executor(resolve, reject) {
+    if (window.AMap) {
+      resolve();
+      return;
+    }
+    var script = document.createElement("script");
+    script.src = "https://webapi.amap.com/maps?v=2.0&key=" + encodeURIComponent(key);
+    script.async = true;
+    script.onload = function onLoad() { resolve(); };
+    script.onerror = function onError() { reject(new Error("高德脚本加载失败")); };
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * 在地图容器里展示附近彩票店。
+ * 失败一律降级成文字提示，不把错误抛给用户。
+ */
+function initShopMap() {
+  var key = state.amapKey;
+  if (!key) {
+    dom.btnMapConfig.click();
+    showToast("先填一个高德 Key");
+    return;
+  }
+
+  dom.mapBox.innerHTML = '<div class="map-hint">正在定位…</div>';
+
+  loadAmapScript(key).then(function onReady() {
+    dom.mapBox.innerHTML = "";
+    dom.mapBox.style.padding = "0";
+
+    var map = new window.AMap.Map(dom.mapBox, {
+      zoom: 14,
+      resizeEnable: true,
+      center: [116.397428, 39.90923] // 未定位前先落在天安门，避免空白
+    });
+    state.mapInstance = map;
+
+    var geolocation = new window.AMap.Geolocation({
+      enableHighAccuracy: true,
+      timeout: 8000,
+      showButton: false
+    });
+    map.addControl(geolocation);
+
+    geolocation.getCurrentPosition(function onPosition(status, result) {
+      var located = status === "complete" && result && result.position;
+      var center = located ? [result.position.lng, result.position.lat] : [116.397428, 39.90923];
+      map.setCenter(center);
+      searchNearbyShops(map, center, located);
+    });
+  }).catch(function onFail(error) {
+    dom.mapBox.innerHTML =
+      '<div class="map-hint">地图没能加载<br>' +
+      '<span style="font-size:11px;">常见原因：Key 不正确、未开通 Web 端服务，或用 file:// 直接打开被浏览器拦截</span></div>';
+    dom.mapBox.style.padding = "";
+    // 地图挂了不影响主流程，但要让用户知道可以改用跳转
+    showToast("地图加载失败，可用下方按钮跳转");
+  });
+}
+
+/**
+ * 用高德 POI 搜索查附近彩票店并打点。
+ * @param {object} map - AMap.Map 实例
+ * @param {number[]} center - [lng, lat]
+ * @param {boolean} located - 是否为真实定位结果
+ */
+function searchNearbyShops(map, center, located) {
+  // 用关键词而非 POI 类型码搜索：高德各地分类编码不完全一致，关键词更稳
+  var placeSearch = new window.AMap.PlaceSearch({
+    pageSize: 15,
+    pageIndex: 1,
+    map: map
+  });
+
+  placeSearch.searchNearBy("彩票", center, 3000, function onResult(status, result) {
+    if (status !== "complete" || !result.poiList || !result.poiList.pois.length) {
+      dom.shopList.innerHTML =
+        '<div class="empty">附近 3 公里内没搜到彩票店' +
+        (located ? "" : "（当前用默认位置，定位可能被拒绝）") + "</div>";
+      return;
+    }
+
+    var pois = result.poiList.pois.slice(0, 10);
+    dom.shopList.innerHTML = pois.map(function toItem(poi) {
+      var distance = poi.distance ? Math.round(poi.distance) + " m" : "";
+      return (
+        '<div class="shop-item">' +
+        '<span class="shop-name">' + escapeHtml(poi.name) + "</span>" +
+        '<span class="shop-dist">' + distance + "</span>" +
+        "</div>"
+      );
+    }).join("");
+  });
+}
+
+/** 打开高德 URI 搜索，无需 Key，作为地图不可用时的兜底 */
+function openAmapSearch() {
+  var url = "https://uri.amap.com/search?keyword=" + encodeURIComponent("彩票店") + "&callnative=1";
+  window.open(url, "_blank");
+}
+
+/** 极简 HTML 转义，POI 名称来自第三方，必须转义后再插入 */
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* ==================================================================
+ * 八、事件绑定与启动
+ * ================================================================== */
+
+function bindEvents() {
+  dom.btnPrevDay.addEventListener("click", function onPrev() { shiftDate(-1); });
+  dom.btnNextDay.addEventListener("click", function onNext() { shiftDate(1); });
+  document.getElementById("btnToday").addEventListener("click", function onToday() {
+    state.activeDate = startOfToday();
+    state.salt = 0;
+    writeStorage(STORAGE_KEYS.salt, state.salt);
+    refreshAll();
+  });
+
+  document.getElementById("btnReroll").addEventListener("click", function onReroll() {
+    state.salt += 1;
+    writeStorage(STORAGE_KEYS.salt, state.salt);
+    renderNumbers();
+    showToast(state.confirmed ? "已换号，确认的仍是原来那组" : "换了一组");
+  });
+
+  dom.btnConfirm.addEventListener("click", confirmDraw);
+  dom.btnUnconfirm.addEventListener("click", unconfirmDraw);
+
+  // 收藏列表删除
+  dom.savedList.addEventListener("click", function onRemove(event) {
+    var target = event.target.closest("[data-remove]");
+    if (!target) return;
+    var index = Number(target.getAttribute("data-remove"));
+    state.savedNumbers.splice(index, 1);
+    writeStorage(STORAGE_KEYS.savedNumbers, state.savedNumbers);
+    renderSaved();
+    showToast("已删除");
+  });
+
+  // 上期开奖录入
+  dom.issueInput.addEventListener("input", function onIssue(event) {
+    var value = event.target.value.trim();
+    /* 期号一改，同步来的日期和奖池就对不上了，一并清掉 */
+    if (value !== state.lastDraw.issue) {
+      state.lastDraw.date = "";
+      state.lastDraw.week = "";
+      state.lastDraw.sales = 0;
+      state.lastDraw.pool = 0;
+    }
+    state.lastDraw.issue = value;
+    writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
+    renderDrawMeta();
+  });
+
+  dom.lastReds.addEventListener("input", function onRedInput(event) {
+    var input = event.target.closest("[data-red-index]");
+    if (!input) return;
+    var index = Number(input.getAttribute("data-red-index"));
+    state.lastDraw.reds[index] = input.value.replace(/\D/g, "").slice(0, 2);
+    writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
+    renderLastDrawBalls();
+  });
+
+  dom.lastBlue.addEventListener("input", function onBlue(event) {
+    dom.lastBlue.value = dom.lastBlue.value.replace(/\D/g, "").slice(0, 2);
+    state.lastDraw.blue = dom.lastBlue.value;
+    writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
+    renderLastDrawBalls();
+  });
+
+  document.getElementById("btnEditDraw").addEventListener("click", function onToggleEdit() {
+    var opened = dom.drawEditBody.classList.toggle("fold-body--open");
+    this.textContent = opened ? "收起" : "手动填写 / 修正";
+  });
+
+  document.getElementById("btnCheckDraw").addEventListener("click", checkAgainstLastDraw);
+  document.getElementById("btnSyncDraw").addEventListener("click", function onSyncDraw() {
+    syncLatestDraw({ manual: true });
+  });
+
+  // 地图
+  document.getElementById("btnOpenMap").addEventListener("click", openAmapSearch);
+
+  document.getElementById("btnMapConfig").addEventListener("click", function onToggle() {
+    dom.mapConfigBody.classList.toggle("fold-body--open");
+  });
+
+  document.getElementById("btnSaveKey").addEventListener("click", function onSaveKey() {
+    var value = dom.amapKeyInput.value.trim();
+    if (!value) {
+      showToast("先粘贴 Key");
+      return;
+    }
+    state.amapKey = value;
+    writeStorage(STORAGE_KEYS.amapKey, value);
+    showToast("已保存，正在加载地图");
+    initShopMap();
+  });
+
+  document.getElementById("btnClearKey").addEventListener("click", function onClearKey() {
+    state.amapKey = "";
+    dom.amapKeyInput.value = "";
+    writeStorage(STORAGE_KEYS.amapKey, "");
+    if (state.mapInstance) {
+      state.mapInstance.destroy();
+      state.mapInstance = null;
+    }
+    dom.mapBox.style.padding = "";
+    dom.mapBox.innerHTML =
+      '<div class="map-hint">未配置地图密钥<br><span style="font-size:11px;">填入高德 Key 后可显示附近店铺</span></div>';
+    dom.shopList.innerHTML = "";
+    showToast("已清除");
+  });
+
+  // 点地图区域也能触发配置提示
+  dom.mapBox.addEventListener("click", function onMapClick() {
+    if (!state.amapKey) dom.btnMapConfig.click();
+  });
+}
+
+/** 首次加载：读本地数据 → 算今日天象 → 渲染 */
+function bootstrap() {
+  cacheDom();
+
+  state.savedNumbers = readStorage(STORAGE_KEYS.savedNumbers, []);
+  state.lastDraw = readStorage(STORAGE_KEYS.lastDraw, {
+    issue: "",
+    reds: ["", "", "", "", "", ""],
+    blue: "",
+    date: "",
+    week: "",
+    sales: 0,
+    pool: 0
+  });
+  state.amapKey = readStorage(STORAGE_KEYS.amapKey, "");
+  state.confirmed = readStorage(STORAGE_KEYS.confirmed, null);
+  state.salt = Number(readStorage(STORAGE_KEYS.salt, 0)) || 0;
+
+  if (state.amapKey) {
+    dom.amapKeyInput.value = state.amapKey;
+  }
+
+  bindEvents();
+  refreshAll();
+  renderSaved();
+  renderLastDraw();
+
+  /* 已确认的号：用本地缓存的开奖数据先判一次，新数据到了会再判 */
+  evaluateConfirm();
+
+  /* 开奖数据：先渲染本地缓存，再异步拉最新，拉不到不影响页面 */
+  syncLatestDraw();
+  startDrawSyncLoop();
+
+  // 已有 Key 时自动加载地图；失败会自行降级
+  if (state.amapKey) {
+    initShopMap();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", bootstrap);
+</script>
+</body>
+</html>

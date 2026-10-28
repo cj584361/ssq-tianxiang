@@ -1,0 +1,13 @@
+# 工作区记忆（开发过程记录），不进公开仓库
+.workbuddy/
+
+# 临时测试脚本
+_check.js
+_smoke.js
+_test_fallback.js
+
+# 系统与依赖
+node_modules/
+.DS_Store
+Thumbs.db
+desktop.ini

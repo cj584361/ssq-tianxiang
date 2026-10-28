@@ -1,0 +1,12 @@
+# 默认统一 LF：GitHub Actions 的 run 块是在 Linux 上跑的 shell，
+# 带 CRLF 会报 $'\r': command not found
+* text=auto eol=lf
+
+# Windows 批处理必须 CRLF，否则 cmd 解析会出问题
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制
+*.png binary
+*.jpg binary
+*.ico binary
