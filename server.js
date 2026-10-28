@@ -31,6 +31,17 @@ var UPSTREAM_PATH =
 
 var cache = { at: 0, data: null };
 
+/* 历史曲线：100 期约合 8 个月，缓存久一点，反正只在新开奖时才变 */
+var HISTORY_MS = 6 * 60 * 60 * 1000;
+var HISTORY_PERIODS = 100;
+var HISTORY_PATH =
+  "/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice" +
+  "?name=ssq&issueCount=&issueStart=&issueEnd=&dayStart=&dayEnd=" +
+  "&pageNo=1&pageSize=" + HISTORY_PERIODS + "&week=&systemType=PC";
+var HISTORY_FILE = path.join(ROOT, "history.json");
+
+var historyCache = { at: 0, data: null };
+
 /* ---------------------------------------------------------------
  * 一、上游取数
  * --------------------------------------------------------------- */
@@ -117,6 +128,120 @@ function fetchUpstream(callback) {
   });
   request.on("error", done);
   request.end();
+}
+
+/* ---------------------------------------------------------------
+ * 一·二、历史取数（给奖金走势曲线用）
+ * --------------------------------------------------------------- */
+
+/** 从 prizegrades 里取某一奖级的注数与单注奖金，字段与 sync-history.js 一致 */
+function gradeOf(grades, type) {
+  var list = Array.isArray(grades) ? grades : [];
+  for (var i = 0; i < list.length; i++) {
+    if (Number(list[i].type) === type) {
+      var num = parseInt(list[i].typenum, 10);
+      var money = parseInt(list[i].typemoney, 10);
+      return {
+        num: isNaN(num) ? 0 : num,
+        money: isNaN(money) ? 0 : money
+      };
+    }
+  }
+  return { num: 0, money: 0 };
+}
+
+/** 一条历史记录的瘦身版：只留画曲线用得上的字段 */
+function normalizeHistory(item) {
+  var first = gradeOf(item.prizegrades, 1);
+  var second = gradeOf(item.prizegrades, 2);
+
+  return {
+    issue: String(item.code || ""),
+    date: String(item.date || "").replace(/\(.*\)$/, ""),
+    pool: Number(item.poolmoney) || 0,
+    sales: Number(item.sales) || 0,
+    firstNum: first.num,
+    firstMoney: first.money,
+    secondNum: second.num,
+    secondMoney: second.money
+  };
+}
+
+/** 请求官网历史列表，回调 (err, items) */
+function fetchHistoryUpstream(callback) {
+  var settled = false;
+
+  function done(err, items) {
+    if (settled) return;
+    settled = true;
+    callback(err, items);
+  }
+
+  var request = https.request(
+    {
+      hostname: "www.cwl.gov.cn",
+      path: HISTORY_PATH,
+      method: "GET",
+      timeout: 15000,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        Referer: "https://www.cwl.gov.cn/ygkj/wqkjgg/ssq/",
+        Accept: "application/json, text/javascript, */*; q=0.01"
+      }
+    },
+    function onResponse(response) {
+      var chunks = [];
+      response.on("data", function onChunk(chunk) {
+        chunks.push(chunk);
+      });
+      response.on("end", function onEnd() {
+        if (response.statusCode !== 200) {
+          done(new Error("上游返回 HTTP " + response.statusCode));
+          return;
+        }
+        var json;
+        try {
+          json = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        } catch (error) {
+          done(new Error("上游返回内容不是 JSON"));
+          return;
+        }
+        var list = (json && json.result) || [];
+        if (!list.length) {
+          done(new Error("上游没有历史数据"));
+          return;
+        }
+        /* 官网按新→旧返回，反过来存成旧→新，前端直接按顺序画 */
+        var items = list
+          .map(normalizeHistory)
+          .filter(function isValid(row) {
+            return row.issue && row.date;
+          })
+          .reverse();
+        done(null, items);
+      });
+      response.on("error", done);
+    }
+  );
+
+  request.on("timeout", function onTimeout() {
+    request.destroy();
+    done(new Error("上游超时"));
+  });
+  request.on("error", done);
+  request.end();
+}
+
+/** 读本地 history.json，给上游失败时兜底 */
+function readHistoryFile() {
+  try {
+    var parsed = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+    return parsed && Array.isArray(parsed.items) ? parsed : null;
+  } catch (error) {
+    return null;
+  }
 }
 
 /* ---------------------------------------------------------------
@@ -238,10 +363,77 @@ var server = http.createServer(function onRequest(request, response) {
     return;
   }
 
+  if (pathname === "/api/history") {
+    var nowH = Date.now();
+    if (historyCache.data && nowH - historyCache.at < HISTORY_MS) {
+      sendJson(response, 200, {
+        ok: true,
+        cached: true,
+        data: historyCache.data
+      });
+      return;
+    }
+
+    fetchHistoryUpstream(function onFetched(error, items) {
+      if (error) {
+        /* 回源失败：先用内存，再退本地文件，都没有才报错 */
+        if (historyCache.data) {
+          sendJson(response, 200, {
+            ok: true,
+            cached: true,
+            stale: true,
+            message: error.message,
+            data: historyCache.data
+          });
+          return;
+        }
+        var local = readHistoryFile();
+        if (local) {
+          historyCache.at = nowH;
+          historyCache.data = local;
+          sendJson(response, 200, {
+            ok: true,
+            cached: true,
+            stale: true,
+            message: error.message,
+            data: local
+          });
+          return;
+        }
+        sendJson(response, 502, { ok: false, message: error.message });
+        return;
+      }
+
+      var payload = {
+        ok: true,
+        updatedAt: new Date().toISOString(),
+        count: items.length,
+        items: items
+      };
+
+      historyCache.at = Date.now();
+      historyCache.data = payload;
+
+      /* 顺手落盘：下次就算官网抽风，Pages 和本地都还有一份 */
+      fs.writeFile(HISTORY_FILE, JSON.stringify(payload) + "\n", function onWritten(writeError) {
+        if (writeError) console.warn("history.json 写入失败：" + writeError.message);
+      });
+
+      sendJson(response, 200, {
+        ok: true,
+        cached: false,
+        data: payload
+      });
+    });
+    return;
+  }
+
   if (pathname === "/api/health") {
     sendJson(response, 200, {
       ok: true,
       upstreamCachedAt: cache.at ? new Date(cache.at).toISOString() : null,
+      historyCachedAt: historyCache.at ? new Date(historyCache.at).toISOString() : null,
+      historyCount: historyCache.data ? historyCache.data.count : null,
       issue: cache.data ? cache.data.issue : null
     });
     return;
