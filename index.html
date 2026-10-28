@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0D0F13">
 <title>天象选号 · 双色球</title>
 <style>
@@ -77,6 +77,13 @@
     font-size: var(--fs-md);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    /* 连点两下不要放大：manipulation 关掉双击缩放，但保留拖动和双指缩放地图 */
+    touch-action: manipulation;
+    -ms-touch-action: manipulation;
+    /* 防止横竖屏切换时系统擅自放大字号 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: hidden;
   }
 
   body {
@@ -85,6 +92,15 @@
       radial-gradient(120% 60% at 50% -10%, var(--gold-glow) 0%, transparent 62%);
     background-repeat: no-repeat;
     min-height: 100vh;
+    /* 连点两下不要顺带选中文字、弹出选择菜单；输入框仍然可选 */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input, textarea, select,
+  .input {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   /* ---------- 布局骨架 ---------- */
@@ -810,6 +826,35 @@
 
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
+  }
+
+  /* ============================================================
+     移动端防缩放
+     iOS Safari 在聚焦字号小于 16px 的输入框时，会强行把整页放大，
+     而且放大后不会自己还原 —— 这是「点两下页面被放大」最常见的原因。
+     把输入类元素兜到 16px 以上即可，其余布局不变。
+     ============================================================ */
+  @media (max-width: 520px) {
+    input,
+    textarea,
+    select,
+    .input,
+    .input--num {
+      font-size: 16px;
+    }
+  }
+
+  /* 双击不缩放、不弹选择菜单：控件本身也不需要被选中 */
+  button,
+  .btn,
+  .ball,
+  .chip,
+  .card-title,
+  .shop-item,
+  .alt-row {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
   }
 </style>
 </head>
@@ -3009,6 +3054,16 @@ function bootstrap() {
     initShopMap();
   }
 }
+
+/* 双保险：CSS 的 touch-action 已经关掉双击缩放，但老版 iOS 不认，
+   这里再吞一次双击默认行为。只拦 dblclick，不影响单击和地图拖动。 */
+document.addEventListener(
+  "dblclick",
+  function onDoubleClick(event) {
+    event.preventDefault();
+  },
+  { passive: false }
+);
 
 document.addEventListener("DOMContentLoaded", bootstrap);
 </script>
