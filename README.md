@@ -64,12 +64,15 @@ GitHub 服务器 ──每 15 分钟──▶ 福彩官网
 
 服务器之间没有跨域限制，页面读的是同源的 `data.json`，不依赖任何第三方代理。
 
-**步骤**
+**本项目的线上地址**：https://cj584361.github.io/ssq-tianxiang/
 
-1. 建一个公开仓库（**私有仓库的 Pages 要付费**），把本项目推上去
-2. 仓库 **Settings → Pages → Source** 选 `Deploy from a branch`，分支 `main`、目录 `/ (root)`，保存
-3. 等一两分钟，访问 `https://<你的用户名>.github.io/<仓库名>/`
-4. 到 **Actions** 页签，找到「同步开奖数据」，点 `Run workflow` 手动跑一次，确认 `data.json` 有更新
+**首次启用步骤**（只需做一次）
+
+1. 仓库 **Settings → Pages → Source** 选 `Deploy from a branch`，分支 `main`、目录 `/ (root)`，保存
+2. **Settings → Actions → General → Workflow permissions** 确认是 `Read and write permissions`
+   （workflow 要往仓库提交 `data.json`，只读会推送失败）
+3. 等一两分钟，访问 https://cj584361.github.io/ssq-tianxiang/
+4. 到 **Actions** 页签应能看到「同步开奖数据」已运行；想立刻刷新数据就点 `Run workflow`
 
 **关于延迟**：GitHub 的定时任务会排队，实测通常晚几分钟到二十分钟；Pages 的 CDN 还有缓存。
 所以线上版的开奖结果一般比官方晚 **15–40 分钟**出现。页面自己会标注抓取时间，
