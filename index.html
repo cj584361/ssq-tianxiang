@@ -1002,12 +1002,19 @@
 
     <div class="fold-body" id="mapConfigBody">
       <div class="field" style="margin-top:var(--sp-4)">
-        <label class="field-label" for="amapKeyInput">高德 Web 端 JS API Key</label>
-        <input class="input" id="amapKeyInput" type="text" placeholder="粘贴 Key 后点保存" autocomplete="off">
+        <label class="field-label" for="amapKeyInput">高德 Web 端（JS API）Key</label>
+        <input class="input" id="amapKeyInput" type="text" placeholder="32 位字符，不是 Web 服务 Key" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label" for="amapSecurityInput">安全密钥 securityJsCode</label>
+        <input class="input" id="amapSecurityInput" type="text" placeholder="2021-12 之后申请的 Key 必须填" autocomplete="off">
       </div>
       <div class="card-note" style="line-height:1.75;margin-bottom:var(--sp-3)">
-        Key 只存在你本机。申请：高德开放平台 → 应用管理 → 新建 Web 端（JS API）。
-        注意：本地双击打开（file://）时地图可能被浏览器的安全策略拦截，部署到 https 后正常。
+        两个字符串在同一页面：高德开放平台 → 应用管理 → 我的应用 → 该 Key 右侧「设置」，
+        <b>安全密钥</b>与 Key 成对出现。缺了安全密钥，地图能加载但取不到数据。<br>
+        Key 的类型必须是「Web 端（JS API）」，选成「Web 服务」用不了；若 Key 设了域名白名单，
+        要把当前访问地址加进去。<br>
+        两者都只存你本机，不上传。
       </div>
       <div class="btn-row" style="margin-top:0">
         <button class="btn btn--sm" id="btnSaveKey" type="button">保存</button>
@@ -1129,6 +1136,7 @@ var STORAGE_KEYS = {
   savedNumbers: "sky.ssq.saved.v1",
   lastDraw: "sky.ssq.lastdraw.v1",
   amapKey: "sky.ssq.amapkey.v1",
+  amapSecurity: "sky.ssq.amapsec.v1",
   confirmed: "sky.ssq.confirmed.v1",
   salt: "sky.ssq.salt.v1"
 };
@@ -1602,6 +1610,7 @@ var state = {
     pool: 0
   },
   amapKey: "",
+  amapSecurity: "",
   mapInstance: null,
   /** 已确认的那组号：{ dateKey, salt, reds, blue, drawDate, result } */
   confirmed: null
@@ -1651,7 +1660,7 @@ function cacheDom() {
     "issueInput", "lastReds", "lastBlue", "checkResult", "mapBox", "shopList",
     "drawStatus", "drawNote", "btnSyncDraw", "drawIssue", "drawDate", "drawStats",
     "lastDrawBalls", "btnEditDraw", "drawEditBody",
-    "mapConfigBody", "amapKeyInput", "toast", "btnPrevDay", "btnNextDay"
+    "mapConfigBody", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay"
   ];
   ids.forEach(function bindId(id) {
     dom[id] = document.getElementById(id);
@@ -2521,6 +2530,12 @@ function startDrawSyncLoop() {
  * 八、地图（高德 JS API，按需加载）
  * ================================================================== */
 
+/** 已插入的高德脚本，换 Key 时要能摘掉重来 */
+var amapScriptEl = null;
+
+/** 未定位成功时的默认中心（天安门），避免地图一片空白 */
+var MAP_FALLBACK_CENTER = [116.397428, 39.90923];
+
 /**
  * 动态加载高德 JS API。
  * 只有用户填了 Key 才会走到这里，避免无谓的网络请求。
@@ -2529,17 +2544,120 @@ function startDrawSyncLoop() {
  */
 function loadAmapScript(key) {
   return new Promise(function executor(resolve, reject) {
-    if (window.AMap) {
+    if (window.AMap && window.AMap.Map) {
       resolve();
       return;
     }
+    /* 安全密钥必须早于脚本插入：高德在读取脚本那一刻就去取这个配置 */
+    if (state.amapSecurity) {
+      window._AMapSecurityConfig = { securityJsCode: state.amapSecurity };
+    }
+
     var script = document.createElement("script");
-    script.src = "https://webapi.amap.com/maps?v=2.0&key=" + encodeURIComponent(key);
+    script.src =
+      "https://webapi.amap.com/maps?v=2.0&key=" +
+      encodeURIComponent(key) +
+      /* Geolocation / PlaceSearch 是插件，不声明就是 undefined，new 的时候必炸 */
+      "&plugin=AMap.Geolocation,AMap.PlaceSearch";
     script.async = true;
-    script.onload = function onLoad() { resolve(); };
-    script.onerror = function onError() { reject(new Error("高德脚本加载失败")); };
+    script.onload = function onLoad() {
+      /* Key 不对时高德照样返回 200，只能看 AMap 有没有成形 */
+      if (window.AMap && window.AMap.Map) {
+        resolve();
+      } else {
+        reject(new Error("高德脚本已返回，但没有生成 AMap 对象（Key 被拒绝，或网络被劫持）"));
+      }
+    };
+    script.onerror = function onError() {
+      reject(new Error("高德脚本请求失败，检查网络或广告拦截插件"));
+    };
+    amapScriptEl = script;
     document.head.appendChild(script);
   });
+}
+
+/** 插件兜底：URL 参数没生效时用 AMap.plugin 再要一次 */
+function ensureAmapPlugins() {
+  return new Promise(function executor(resolve, reject) {
+    if (window.AMap.Geolocation && window.AMap.PlaceSearch) {
+      resolve();
+      return;
+    }
+    if (!window.AMap.plugin) {
+      reject(new Error("插件未加载，且当前 AMap 没有 plugin 方法"));
+      return;
+    }
+    var settled = false;
+    var timer = window.setTimeout(function onSlow() {
+      if (settled) return;
+      settled = true;
+      reject(new Error("插件加载超时（8 秒）"));
+    }, 8000);
+    window.AMap.plugin(["AMap.Geolocation", "AMap.PlaceSearch"], function onPlugins() {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+/** 把高德返回的错误码翻译成下一步该做什么 */
+function amapErrorHint(info) {
+  var code = String(info || "").toUpperCase();
+  if (!code) return "";
+  if (code.indexOf("INVALID_USER_SCODE") >= 0 || code.indexOf("SCODE") >= 0) {
+    return "缺少或填错「安全密钥」。2021 年 12 月后申请的 Key 都必须配 securityJsCode";
+  }
+  if (code.indexOf("INVALID_USER_DOMAIN") >= 0 || code.indexOf("USER_DOMAIN") >= 0) {
+    return "这个 Key 设了域名白名单，" + window.location.origin + " 不在名单里";
+  }
+  if (code.indexOf("INVALID_USER_KEY") >= 0 || code.indexOf("USERKEY") >= 0) {
+    return "Key 不被接受。确认类型是「Web 端（JS API）」而不是「Web 服务」，且没有贴错字符";
+  }
+  if (code.indexOf("OVER_LIMIT") >= 0 || code.indexOf("QUOTA") >= 0) {
+    return "调用量超了当日配额，明天恢复，或换一个 Key";
+  }
+  return "";
+}
+
+/** Key 只露头尾，方便核对有没有贴错，又不至于整串暴露 */
+function maskKey(key) {
+  var text = String(key || "");
+  if (text.length <= 10) return text;
+  return text.slice(0, 4) + "…" + text.slice(-4) + "（" + text.length + " 位）";
+}
+
+/** 渲染失败提示：第一行说结论，后面几行给可核实的信息，不堆通用理由 */
+function showMapError(title, details) {
+  var html = '<div class="map-hint"><b>' + escapeHtml(title) + "</b>";
+  var lines = details || [];
+  for (var i = 0; i < lines.length; i++) {
+    if (!lines[i]) continue;
+    html +=
+      '<br><span style="font-size:11px;line-height:1.85;">' + escapeHtml(lines[i]) + "</span>";
+  }
+  html += "</div>";
+  dom.mapBox.style.padding = "";
+  dom.mapBox.innerHTML = html;
+}
+
+/** 摘掉高德脚本并清掉全局状态，换 Key 或补安全密钥后要能重来 */
+function resetAmap() {
+  if (amapScriptEl && amapScriptEl.parentNode) {
+    amapScriptEl.parentNode.removeChild(amapScriptEl);
+  }
+  amapScriptEl = null;
+  try {
+    delete window.AMap;
+  } catch (error) {
+    window.AMap = undefined;
+  }
+  try {
+    delete window._AMapSecurityConfig;
+  } catch (error) {
+    window._AMapSecurityConfig = undefined;
+  }
 }
 
 /**
@@ -2554,39 +2672,91 @@ function initShopMap() {
     return;
   }
 
-  dom.mapBox.innerHTML = '<div class="map-hint">正在定位…</div>';
+  if (state.mapInstance) {
+    state.mapInstance.destroy();
+    state.mapInstance = null;
+  }
+  dom.mapBox.style.padding = "";
+  dom.mapBox.innerHTML = '<div class="map-hint">正在加载地图…</div>';
+  dom.shopList.innerHTML = "";
 
-  loadAmapScript(key).then(function onReady() {
+  loadAmapScript(key)
+    .then(function onScriptReady() {
+      return ensureAmapPlugins();
+    })
+    .then(function onReady() {
+      buildShopMap();
+    })
+    .catch(function onFail(error) {
+      showMapError("地图没能加载", [
+        error && error.message ? error.message : "未知原因",
+        "当前地址：" + window.location.origin,
+        "Key：" + maskKey(key) + (state.amapSecurity ? " · 安全密钥已填" : " · 安全密钥为空"),
+        "按这个顺序查：Key 类型是否为「Web 端（JS API）」→ 补安全密钥 → 域名白名单"
+      ]);
+      // 地图挂了不影响主流程，但要让用户知道可以改用跳转
+      showToast("地图加载失败，可用下方按钮跳转");
+    });
+}
+
+/** 地图与定位真正落地的一步，单独拆出来便于定位问题 */
+function buildShopMap() {
+  var map;
+  try {
     dom.mapBox.innerHTML = "";
     dom.mapBox.style.padding = "0";
-
-    var map = new window.AMap.Map(dom.mapBox, {
+    map = new window.AMap.Map(dom.mapBox, {
       zoom: 14,
       resizeEnable: true,
-      center: [116.397428, 39.90923] // 未定位前先落在天安门，避免空白
+      center: MAP_FALLBACK_CENTER
     });
-    state.mapInstance = map;
+  } catch (error) {
+    showMapError("地图初始化失败", [
+      error && error.message ? error.message : "构造 AMap.Map 时抛了异常",
+      "控制台里若有 INVALID_USER_ 开头的错误码，就是 Key 授权问题"
+    ]);
+    return;
+  }
+  state.mapInstance = map;
 
-    var geolocation = new window.AMap.Geolocation({
+  var geolocation;
+  try {
+    geolocation = new window.AMap.Geolocation({
       enableHighAccuracy: true,
       timeout: 8000,
       showButton: false
     });
     map.addControl(geolocation);
+  } catch (error) {
+    // 定位控件起不来不影响看图和搜索，按默认位置直接查
+    searchNearbyShops(map, MAP_FALLBACK_CENTER, false);
+    return;
+  }
 
-    geolocation.getCurrentPosition(function onPosition(status, result) {
-      var located = status === "complete" && result && result.position;
-      var center = located ? [result.position.lng, result.position.lat] : [116.397428, 39.90923];
-      map.setCenter(center);
-      searchNearbyShops(map, center, located);
-    });
-  }).catch(function onFail(error) {
-    dom.mapBox.innerHTML =
-      '<div class="map-hint">地图没能加载<br>' +
-      '<span style="font-size:11px;">常见原因：Key 不正确、未开通 Web 端服务，或用 file:// 直接打开被浏览器拦截</span></div>';
-    dom.mapBox.style.padding = "";
-    // 地图挂了不影响主流程，但要让用户知道可以改用跳转
-    showToast("地图加载失败，可用下方按钮跳转");
+  geolocation.getCurrentPosition(function onPosition(status, result) {
+    var info = (result && result.info) || "";
+    var authIssue = amapErrorHint(info);
+    if (authIssue) {
+      showMapError("Key 授权没通过", [authIssue, "高德返回：" + info]);
+      return;
+    }
+
+    var located = status === "complete" && result && result.position ? true : false;
+    var center = located ? [result.position.lng, result.position.lat] : MAP_FALLBACK_CENTER;
+    map.setCenter(center);
+
+    if (!located) {
+      var reason =
+        window.location.protocol === "file:"
+          ? "本地文件直接打开，浏览器不给定位权限"
+          : info && info !== "SUCCESS" && info !== "ERROR_NOCELL&WIFI_LOCATIONSWITCHOPEN"
+            ? "定位失败（" + info + "）"
+            : "定位被拒绝或超时";
+      dom.shopList.innerHTML =
+        '<div class="empty">' + escapeHtml(reason) + "，先按默认位置查找</div>";
+    }
+
+    searchNearbyShops(map, center, located);
   });
 }
 
@@ -2598,30 +2768,56 @@ function initShopMap() {
  */
 function searchNearbyShops(map, center, located) {
   // 用关键词而非 POI 类型码搜索：高德各地分类编码不完全一致，关键词更稳
-  var placeSearch = new window.AMap.PlaceSearch({
-    pageSize: 15,
-    pageIndex: 1,
-    map: map
-  });
+  var placeSearch;
+  try {
+    placeSearch = new window.AMap.PlaceSearch({
+      pageSize: 15,
+      pageIndex: 1,
+      map: map
+    });
+  } catch (error) {
+    dom.shopList.innerHTML =
+      '<div class="empty">搜索组件没加载起来，可点下面的按钮直接去高德搜</div>';
+    return;
+  }
 
   placeSearch.searchNearBy("彩票", center, 3000, function onResult(status, result) {
-    if (status !== "complete" || !result.poiList || !result.poiList.pois.length) {
+    var info = (result && result.info) || status;
+    var authIssue = amapErrorHint(info);
+
+    if (authIssue) {
+      dom.mapBox.style.padding = "";
+      showMapError("地图出来了，但查不到店铺", [authIssue, "高德返回：" + info]);
+      dom.shopList.innerHTML = "";
+      return;
+    }
+
+    if (status !== "complete") {
+      dom.shopList.innerHTML =
+        '<div class="empty">搜索没成功（' + escapeHtml(String(info)) + "），可点下面按钮去高德搜</div>";
+      return;
+    }
+
+    if (!result.poiList || !result.poiList.pois.length) {
       dom.shopList.innerHTML =
         '<div class="empty">附近 3 公里内没搜到彩票店' +
-        (located ? "" : "（当前用默认位置，定位可能被拒绝）") + "</div>";
+        (located ? "" : "（当前用默认位置，定位可能被拒绝）") +
+        "</div>";
       return;
     }
 
     var pois = result.poiList.pois.slice(0, 10);
-    dom.shopList.innerHTML = pois.map(function toItem(poi) {
-      var distance = poi.distance ? Math.round(poi.distance) + " m" : "";
-      return (
-        '<div class="shop-item">' +
-        '<span class="shop-name">' + escapeHtml(poi.name) + "</span>" +
-        '<span class="shop-dist">' + distance + "</span>" +
-        "</div>"
-      );
-    }).join("");
+    dom.shopList.innerHTML = pois
+      .map(function toItem(poi) {
+        var distance = poi.distance ? Math.round(poi.distance) + " m" : "";
+        return (
+          '<div class="shop-item">' +
+          '<span class="shop-name">' + escapeHtml(poi.name) + "</span>" +
+          '<span class="shop-dist">' + distance + "</span>" +
+          "</div>"
+        );
+      })
+      .join("");
   });
 }
 
@@ -2725,24 +2921,38 @@ function bindEvents() {
 
   document.getElementById("btnSaveKey").addEventListener("click", function onSaveKey() {
     var value = dom.amapKeyInput.value.trim();
+    var security = dom.amapSecurityInput.value.trim();
     if (!value) {
       showToast("先粘贴 Key");
       return;
     }
+    var changed = value !== state.amapKey || security !== state.amapSecurity;
     state.amapKey = value;
+    state.amapSecurity = security;
     writeStorage(STORAGE_KEYS.amapKey, value);
-    showToast("已保存，正在加载地图");
+    writeStorage(STORAGE_KEYS.amapSecurity, security);
+    if (state.mapInstance) {
+      state.mapInstance.destroy();
+      state.mapInstance = null;
+    }
+    // 换 Key 或补安全密钥后必须重新加载脚本，否则旧配置会一直生效
+    if (changed) resetAmap();
+    showToast(security ? "已保存，正在加载地图" : "已保存，但安全密钥为空");
     initShopMap();
   });
 
   document.getElementById("btnClearKey").addEventListener("click", function onClearKey() {
     state.amapKey = "";
+    state.amapSecurity = "";
     dom.amapKeyInput.value = "";
+    dom.amapSecurityInput.value = "";
     writeStorage(STORAGE_KEYS.amapKey, "");
+    writeStorage(STORAGE_KEYS.amapSecurity, "");
     if (state.mapInstance) {
       state.mapInstance.destroy();
       state.mapInstance = null;
     }
+    resetAmap();
     dom.mapBox.style.padding = "";
     dom.mapBox.innerHTML =
       '<div class="map-hint">未配置地图密钥<br><span style="font-size:11px;">填入高德 Key 后可显示附近店铺</span></div>';
@@ -2771,11 +2981,15 @@ function bootstrap() {
     pool: 0
   });
   state.amapKey = readStorage(STORAGE_KEYS.amapKey, "");
+  state.amapSecurity = readStorage(STORAGE_KEYS.amapSecurity, "");
   state.confirmed = readStorage(STORAGE_KEYS.confirmed, null);
   state.salt = Number(readStorage(STORAGE_KEYS.salt, 0)) || 0;
 
   if (state.amapKey) {
     dom.amapKeyInput.value = state.amapKey;
+  }
+  if (state.amapSecurity) {
+    dom.amapSecurityInput.value = state.amapSecurity;
   }
 
   bindEvents();
