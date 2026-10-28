@@ -1,0 +1,14 @@
+{
+  "name": "ssq-tianxiang",
+  "version": "1.0.0",
+  "private": true,
+  "description": "天象选号 · 双色球：按当天干支节气确定性生成号码，开奖后自动判奖",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "sync": "node scripts/sync-draw.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
