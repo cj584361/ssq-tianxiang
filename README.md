@@ -101,9 +101,12 @@
 - **中彩网是个好源，但只给自家页面用**：`jc.zhcw.com` 的接口字段齐全（含一至六等奖注数与单注奖金）、
   带 `Access-Control-Allow-Origin: *`，看着完美——但它校验 Referer，
   浏览器和海外服务器都过不去，本项目没有采用。
-- **想要"电脑不开机也自动更新"**：只有一条路——把抓取放到**国内**的服务器上
-  （腾讯云函数 SCF / 阿里云 FC 的免费额度就行），函数里带 `Referer` 抓官网，
-  存到云数据库或再推 GitHub。海外 serverless（Vercel / Cloudflare Workers）同样不通。
+- **想要"电脑不开机也自动更新"**：把抓取放到**国内**的机器上。两条路：
+  1. **金山文档「智能表格 + AirScript + 定时任务」**（免费，不用实名开云账号）——
+     见 [`wps-sync/`](./wps-sync/)，脚本已写好，粘进编辑器、配个每天 21:45 的定时任务就行
+  2. **国内云函数**（腾讯云 SCF / 阿里云 FC 免费额度），函数里带 `Referer` 抓官网再推 GitHub
+
+  海外 serverless（Vercel / Cloudflare Workers）同样不通，已实测 522。
 
 
 ---
@@ -356,6 +359,10 @@ https 页面不会去碰 http 本地地址，避免浏览器按混合内容拦�
 ├── package.json                   声明 node 启动方式
 ├── scripts/sync-draw.js           抓官网 → 写 data.json（本地与 Actions 都能跑）
 ├── scripts/sync-history.js        抓近 100 期 → 写 history.json
+├── wps-sync/                      金山文档 AirScript 版同步（电脑不用开机）
+│   ├── airsync.js                 粘进金山文档脚本编辑器的全文
+│   ├── test.js                    本地回归测试，46 条断言
+│   └── README.md                  配置步骤与判定表
 ├── .github/workflows/sync-draw.yml 定时跑上面两个脚本（海外抓不到，仅留作兜底）
 └── README.md
 ```
