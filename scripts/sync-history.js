@@ -128,5 +128,6 @@ async function main() {
 
 main().catch(function onError(error) {
   console.warn("抓取失败，保留现有 history.json：" + error.message);
-  process.exit(0);
+  /* 同 sync-draw.js：用退出码 2 让本地脚本能分辨失败，Actions 用 || true 兜 */
+  process.exitCode = 2;
 });

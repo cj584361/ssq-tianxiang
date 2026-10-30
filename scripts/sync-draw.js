@@ -102,6 +102,8 @@ async function main() {
 
 main().catch(function onError(error) {
   console.warn("抓取失败，保留现有 data.json：" + error.message);
-  /* 退出码保持 0：官网偶发抽风不该让 Actions 变红、发一堆邮件 */
-  process.exit(0);
+  /* 退出码 2：让 sync-push.bat 能分清「抓到了但没变化」和「根本没抓到」。
+     这两个在命令行里都是 0，看不出区别。GitHub Actions 那边用 || true 兜，
+     不让它变红发一堆邮件。 */
+  process.exitCode = 2;
 });

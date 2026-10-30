@@ -5,7 +5,14 @@ name: 同步开奖数据
 # 页面读同源的 data.json，既绕开跨域，也不用任何第三方代理。
 #
 # 开奖时间：每周二、四、日 21:15（北京时间 = UTC 13:15）。
-# GitHub 的 schedule 会排队延迟，实测通常晚几分钟到二十分钟。
+#
+# ⚠️ 已知事实（2026-10-30 实测）：福彩官网只对国内 IP 开放，GitHub 的
+#    服务器在海外，抓取会失败——本工作流跑一次不更新一次数据。留着是因为
+#    成本为零，万一哪天通了自动就好；真要保证线上是新的，用仓库根目录的
+#    sync-push.bat（本机国内网络抓取后推送）。
+#
+# ⚠️ 另外：cron 写 */15 也没用。GitHub 对免费仓库的定时任务会限流，
+#    实测间隔 3–7 小时（记录：00:33 → 20:49 → 15:49 → 08:49）。
 
 on:
   schedule:
@@ -39,10 +46,12 @@ jobs:
           node-version: "20"
 
       - name: 抓取最新一期
-        run: node scripts/sync-draw.js
+        # || true：抓不到不算失败。脚本用退出码 2 表示抓取失败，
+        # 直接透传会让每次运行都红、天天发邮件。
+        run: node scripts/sync-draw.js || true
 
       - name: 抓取近 100 期历史（奖金曲线用）
-        run: node scripts/sync-history.js
+        run: node scripts/sync-history.js || true
 
       - name: 有变化才提交
         run: |

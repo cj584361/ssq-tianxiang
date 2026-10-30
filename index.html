@@ -2690,7 +2690,7 @@ function isDrawWindow() {
   return minutes >= 21 * 60 + 15 && minutes <= 22 * 60 + 15;
 }
 
-function setDrawStatus(kind, text) {
+function setDrawStatus(kind, text, tip) {
   if (!dom.drawStatus) return;
   dom.drawStatus.textContent = text;
   dom.drawStatus.style.color =
@@ -2698,6 +2698,46 @@ function setDrawStatus(kind, text) {
       : kind === "error" ? "var(--danger)"
         : kind === "warn" ? "var(--warn)"
           : "";
+  if (tip) dom.drawStatus.title = tip;
+  else dom.drawStatus.removeAttribute("title");
+}
+
+/**
+ * 最近一期「结果已经公布」的开奖日（yyyy-mm-dd）。
+ * 双色球周二/四/日 21:15 开奖，官网一般 21:30 前后才更新，这里留到 21:40。
+ *
+ * 用它来判断「手上这期是不是落后了」，比看文件多久没更新靠谱：
+ * 静态托管上文件本来就没人推，永远显得旧，说不清到底缺不缺数据。
+ */
+function latestPublishedDrawKey(now) {
+  var base = now || new Date();
+  var minutes = base.getHours() * 60 + base.getMinutes();
+  var todayPublished = minutes >= 21 * 60 + 40;
+
+  for (var back = 0; back < 10; back++) {
+    var day = new Date(base.getFullYear(), base.getMonth(), base.getDate() - back);
+    if (!isDrawWeekday(day)) continue;
+    if (back === 0 && !todayPublished) continue;
+    return dateKeyOf(day);
+  }
+  return "";
+}
+
+/** 两个日期之间隔了几个开奖日（不含起点，含终点） */
+function countDrawDaysBetween(fromKey, toKey) {
+  var from = parseDateKey(fromKey);
+  var to = parseDateKey(toKey);
+  if (!from || !to || to.getTime() <= from.getTime()) return 0;
+
+  var count = 0;
+  var cursor = new Date(from.getTime());
+  var guard = 0;
+  while (guard++ < 400) {
+    cursor.setDate(cursor.getDate() + 1);
+    if (cursor.getTime() > to.getTime()) break;
+    if (isDrawWeekday(cursor)) count++;
+  }
+  return count;
 }
 
 /** 把接口数据落到状态和界面上 */
@@ -2739,8 +2779,6 @@ function applyDrawData(data, stale, meta) {
   var now = new Date();
   var timeText = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
 
-  /* GitHub Pages 读的是静态 data.json，没有 stale 标记，
-     用文件里的抓取时间判断有多旧——旧了就老实说，别装作刚同步过 */
   var fetchedAt = null;
   if (meta && meta.updatedAt) {
     var parsed = new Date(meta.updatedAt);
@@ -2750,15 +2788,34 @@ function applyDrawData(data, stale, meta) {
     }
   }
   var tooOld = !!fetchedAt && Date.now() - fetchedAt.getTime() > 3 * 60 * 60 * 1000;
-  var isStale = !!stale || tooOld;
 
-  setDrawStatus(isStale ? "warn" : "ok", isStale ? "缓存" : "已同步");
+  /* 判断「缺不缺数据」看期号，不看文件多旧。
+     该有的最新一期是 latestPublishedDrawKey()，手上这期比它早就是落后了。 */
+  var expectedKey = latestPublishedDrawKey(now);
+  var drawKey = String(data.date || "").slice(0, 10);
+  var behind = 0;
+  if (!stale && expectedKey && drawKey && drawKey < expectedKey) {
+    behind = countDrawDaysBetween(drawKey, expectedKey) || 1;
+  }
+
+  if (stale) {
+    setDrawStatus("warn", "官网取不到", "官网这次没返回数据，下面显示的是上次存下来的结果");
+  } else if (behind >= 2) {
+    setDrawStatus("error", "落后 " + behind + " 期", "应有 " + expectedKey + " 那期，手上还停在 " + drawKey);
+  } else if (behind === 1) {
+    setDrawStatus("warn", "缺 " + expectedKey.slice(5).replace("-", "/") + " 那期", "应有 " + expectedKey + " 那期，手上还停在 " + drawKey);
+  } else {
+    setDrawStatus("ok", "已同步", "已是最新一期");
+  }
+
   if (dom.drawNote) {
     var tail;
     if (stale) {
       tail = " · 官网暂时取不到，显示上次结果";
+    } else if (behind > 0) {
+      tail = " · 应有 " + expectedKey + " 那期还没取到，本机开一下 start.bat 就能补";
     } else if (tooOld) {
-      tail = " · 抓取于 " + timeText + "，可能不是最新";
+      tail = " · 抓取于 " + timeText + "，但已是最新一期";
     } else {
       tail = " · " + timeText + (fetchedAt ? " 抓取" : " 同步");
     }
@@ -2874,7 +2931,7 @@ function syncLatestDraw(options) {
     })
     .catch(function onError(error) {
       finish();
-      setDrawStatus("error", isLocalFile ? "离线打开" : "同步失败");
+      setDrawStatus("error", isLocalFile ? "离线打开" : "取不到最新", "这次没连上数据源，下面显示的是上次存下来的结果");
 
       var reason = error && error.message ? error.message : "网络异常";
       var tip;
@@ -2884,7 +2941,9 @@ function syncLatestDraw(options) {
         tip = "取不到开奖数据（" + reason + "）。确认 start.bat 的窗口还开着；也可以在这里手动填写。";
       } else {
         tip = "取不到开奖数据（" + reason +
-          "）。线上这版靠定时任务生成数据，可能还没跑起来，也可能官网暂时取不到；稍后再点「立即同步」，或直接手动填写。";
+          "）。线上这版是纯静态页，只能读仓库里存好的那份数据——福彩官网只对国内 IP 开放，" +
+          "GitHub 的服务器抓不到，所以它不会自己更新。想让线上跟着更新，双击 start.bat 同步一次就会推上去；" +
+          "也可以在这里手动填写。";
       }
 
       if (dom.drawNote) {

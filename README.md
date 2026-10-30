@@ -41,7 +41,7 @@
 | 打开方式 | 号码/天象 | 开奖数据 | 内嵌地图 |
 |---|---|---|---|
 | `start.bat`（本机服务） | ✓ | ✓ 实时，8 分钟刷新 | ✓ |
-| GitHub Pages（线上） | ✓ | ✓ 定时抓取，延迟十几分钟 | ✓ |
+| GitHub Pages（线上） | ✓ | △ 只读仓库里存好的那份，不会自己更新 | ✓ |
 | 直接双击 `index.html` | ✓ | ✗ 浏览器禁止 file:// 联网 | ✗ 需要安全上下文 |
 
 直接双击时页面会明确提示"离线打开"，此时**手动填写开奖号**照样能比对，
@@ -54,31 +54,57 @@
 
 ## 部署到自己的 GitHub Pages
 
-线上版跑不了 `server.js`（Pages 只托管静态文件），所以开奖数据改由 **GitHub Actions 定时抓取**：
-
-```
-GitHub 服务器 ──每 15 分钟──▶ 福彩官网
-      │
-      └─▶ 写入 data.json ──提交──▶ 仓库 ──▶ Pages ──▶ 页面读取
-```
-
-服务器之间没有跨域限制，页面读的是同源的 `data.json`，不依赖任何第三方代理。
-
 **本项目的线上地址**：https://cj584361.github.io/ssq-tianxiang/
 
-**首次启用步骤**（只需做一次）
+### 先讲一个坑：线上版没法自己更新数据
+
+福彩官网（`www.cwl.gov.cn`）**只对国内 IP 开放**。实测：
+
+| 从哪儿访问 | 结果 |
+|---|---|
+| 本机（国内宽带） | ✅ 正常返回 |
+| 海外代理（allorigins / codetabs） | ❌ Cloudflare 522，连不上 |
+| 中彩网 `jc.zhcw.com`（换一个源） | ❌ 校验 Referer 必须是 `zhcw.com`，浏览器直连被拦 |
+| 免费第三方彩票 API | ❌ 实测 10 余个，全部失效或要付费 key |
+
+所以 GitHub Actions（跑在海外机房）**抓不到**，`data.json` 不会自己变新。
+仓库里的 workflow 保留着，成本为零，万一哪天通了就自动生效，但**不能指望它**。
+
+### 让线上保持最新：`sync-push.bat`
+
+双击仓库根目录的 `sync-push.bat`：
+
+```
+本机（国内网络）──抓官网──▶ data.json / history.json ──git push──▶ 仓库
+                                                                  └─▶ Pages（1 分钟内生效）
+```
+
+- 数据没变化就什么都不做，不会刷一堆空提交
+- 抓取失败退出码 2，不动现有文件
+- 想全自动：把 `sync-push.bat` 加进「任务计划程序」，每天 **21:40** 和 **22:10** 各跑一次
+  （周二/四/日开奖，21:15 开、21:30 前后官网才出数）。电脑开着就永远是最新的。
+
+页面自己会算「本来该有哪一期」：对不上就把右上角标成 **「缺 10/29 那期」**（橙色）
+或 **「落后 N 期」**（红色），不会拿旧数据冒充最新。
+
+### 首次启用步骤（只需做一次）
 
 1. 仓库 **Settings → Pages → Source** 选 `Deploy from a branch`，分支 `main`、目录 `/ (root)`，保存
 2. **Settings → Actions → General → Workflow permissions** 确认是 `Read and write permissions`
-   （workflow 要往仓库提交 `data.json`，只读会推送失败）
+   （workflow 若要提交 `data.json`，只读会推送失败）
 3. 等一两分钟，访问 https://cj584361.github.io/ssq-tianxiang/
-4. 到 **Actions** 页签应能看到「同步开奖数据」已运行；想立刻刷新数据就点 `Run workflow`
 
-**关于延迟**：GitHub 的定时任务会排队，实测通常晚几分钟到二十分钟；Pages 的 CDN 还有缓存。
-所以线上版的开奖结果一般比官方晚 **15–40 分钟**出现。页面自己会标注抓取时间，
-数据超过 3 小时会显示「缓存」而不是「已同步」，不会假装是最新的。
+### 几点补充
 
-想立刻看到结果，用「立即同步」按钮，或让 `start.bat` 那版一直跑着。
+- **GitHub 定时任务会被限流**：workflow 里写的 `*/15` 不作数，实测间隔 3–7 小时。
+  即使网络通了，也别指望准点。
+- **中彩网是个好源，但只给自家页面用**：`jc.zhcw.com` 的接口字段齐全（含一至六等奖注数与单注奖金）、
+  带 `Access-Control-Allow-Origin: *`，看着完美——但它校验 Referer，
+  浏览器和海外服务器都过不去，本项目没有采用。
+- **想要"电脑不开机也自动更新"**：只有一条路——把抓取放到**国内**的服务器上
+  （腾讯云函数 SCF / 阿里云 FC 的免费额度就行），函数里带 `Referer` 抓官网，
+  存到云数据库或再推 GitHub。海外 serverless（Vercel / Cloudflare Workers）同样不通。
+
 
 ---
 
@@ -226,12 +252,22 @@ GitHub 服务器 ──每 15 分钟──▶ 福彩官网
 | 后台标签页 | 暂停轮询，不浪费流量 |
 
 **缓存**：服务端缓存 8 分钟，一期结果不会变，避免反复打官网。
-官网临时故障时会返回上次结果并标注"缓存"，不会白屏。
+官网临时故障时返回上次结果，右上角标「官网取不到」，不会白屏、也不假装是新数据。
+
+**右上角那个标签说的是「缺不缺数据」，不是「文件多旧」**：
+拿开奖日历算出「本来该有哪一期」，跟手上这期的日期比——
+
+| 标签 | 含义 |
+|---|---|
+| 已同步（绿） | 就是最新一期 |
+| 缺 10/29 那期（橙） | 落后 1 期，点「立即同步」或跑 `sync-push.bat` |
+| 落后 N 期（红） | 落后 2 期以上 |
+| 官网取不到（橙） | 这次没连上数据源，显示的是上次存的 |
 
 **页面按顺序试三个数据源**，前一个不通才走下一个：
 
 1. `/api/latest` —— `server.js` 或云端 Node 版，实时
-2. `data.json` —— GitHub Pages 上由 Actions 生成，准实时
+2. `data.json` —— GitHub Pages 上仓库里存的快照，**不会自己变新**（见上文「先讲一个坑」）
 3. `http://127.0.0.1:5173/api/latest` —— 直接双击 `index.html` 时的兜底
 
 https 页面不会去碰 http 本地地址，避免浏览器按混合内容拦掉；反之 `file://` 打开时
@@ -240,7 +276,7 @@ https 页面不会去碰 http 本地地址，避免浏览器按混合内容拦�
 **奖金走势的历史数据**走同样一套：
 
 1. `/api/history` —— `server.js`，缓存 6 小时，回源失败退本地 `history.json`
-2. `history.json` —— Actions 每 15 分钟抓近 100 期写入仓库
+2. `history.json` —— 仓库里存的快照，由 `sync-push.bat` 更新
 3. `http://127.0.0.1:5173/api/history` —— `file://` 打开时的兜底
 
 `history.json` 约 14 KB / 100 期，只存画图用得上的字段（期号、日期、奖池、销量、
@@ -312,14 +348,15 @@ https 页面不会去碰 http 本地地址，避免浏览器按混合内容拦�
 ```
 双色球天象选号/
 ├── index.html                     全部样式、算法与交互（约 96 KB）
-├── data.json                      Pages 用的开奖快照，由 Action 自动更新
+├── data.json                      Pages 用的开奖快照，由 sync-push.bat 更新
 ├── history.json                   近 100 期奖金数据，供走势图使用，约 14 KB
 ├── server.js                      零依赖 Node 服务：静态托管 + 开奖数据转发
 ├── start.bat                      双击启动：拉起本地服务并打开浏览器
+├── sync-push.bat                  抓官网 → 推 GitHub，让线上跟着更新
 ├── package.json                   声明 node 启动方式
-├── scripts/sync-draw.js           抓官网 → 写 data.json（Actions 与本地都能跑）
+├── scripts/sync-draw.js           抓官网 → 写 data.json（本地与 Actions 都能跑）
 ├── scripts/sync-history.js        抓近 100 期 → 写 history.json
-├── .github/workflows/sync-draw.yml 每 15 分钟跑一次上面两个脚本
+├── .github/workflows/sync-draw.yml 定时跑上面两个脚本（海外抓不到，仅留作兜底）
 └── README.md
 ```
 
