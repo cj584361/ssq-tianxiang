@@ -101,10 +101,11 @@
 - **中彩网是个好源，但只给自家页面用**：`jc.zhcw.com` 的接口字段齐全（含一至六等奖注数与单注奖金）、
   带 `Access-Control-Allow-Origin: *`，看着完美——但它校验 Referer，
   浏览器和海外服务器都过不去，本项目没有采用。
-- **想要"电脑不开机也自动更新"**：把抓取放到**国内**的机器上。两条路：
-  1. **金山文档「智能表格 + AirScript + 定时任务」**（免费，不用实名开云账号）——
-     见 [`wps-sync/`](./wps-sync/)，脚本已写好，粘进编辑器、配个每天 21:45 的定时任务就行
-  2. **国内云函数**（腾讯云 SCF / 阿里云 FC 免费额度），函数里带 `Referer` 抓官网再推 GitHub
+- **想要"电脑不开机也自动更新"**：把抓取放到**国内**的机器上。两条路，脚本都写好了：
+  1. **腾讯云云函数 SCF**（推荐，免费额度够用，不用管电脑开没开）——
+     见 [`scf-sync/`](./scf-sync/)，`index.js` 整段粘进控制台即可，还能一起更新奖金曲线那 100 期
+  2. **金山文档「智能表格 + AirScript + 定时任务」**（不用实名开云账号，但只能更新最新一期）——
+     见 [`wps-sync/`](./wps-sync/)
 
   海外 serverless（Vercel / Cloudflare Workers）同样不通，已实测 522。
 
@@ -359,7 +360,11 @@ https 页面不会去碰 http 本地地址，避免浏览器按混合内容拦�
 ├── package.json                   声明 node 启动方式
 ├── scripts/sync-draw.js           抓官网 → 写 data.json（本地与 Actions 都能跑）
 ├── scripts/sync-history.js        抓近 100 期 → 写 history.json
-├── wps-sync/                      金山文档 AirScript 版同步（电脑不用开机）
+├── scf-sync/                      腾讯云云函数版同步（电脑不用开机，推荐）
+│   ├── index.js                   整段粘进 SCF 控制台 index.js，零依赖
+│   ├── test.js                    本地回归测试，45 条断言
+│   └── README.md                  从开账号到配触发器的逐步操作
+├── wps-sync/                      金山文档 AirScript 版同步（不用实名开云账号）
 │   ├── airsync.js                 粘进金山文档脚本编辑器的全文
 │   ├── test.js                    本地回归测试，46 条断言
 │   └── README.md                  配置步骤与判定表
