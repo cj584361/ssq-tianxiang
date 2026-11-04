@@ -1131,7 +1131,6 @@
     <div class="result result--none" id="checkResult">想看看这组号碰上上一期会怎样？可以点下面的「与上期试算」。</div>
 
     <div class="btn-row" style="margin-top:var(--sp-4)">
-      <button class="btn btn--sm" id="btnSyncDraw" type="button">立即同步</button>
       <button class="btn btn--sm" id="btnCheckDraw" type="button">与上期试算</button>
     </div>
 
@@ -1156,7 +1155,7 @@
     </div>
 
     <div class="card-note" id="drawNote" style="line-height:1.7;">
-      开奖数据自动从中国福彩官网同步，无需手动录入。连不上时点「立即同步」再试一次。
+      开奖数据自动从中国福彩官网同步，无需手动录入。页面停在开奖时段会加快刷新，切回本页也会自动重取一次。
     </div>
   </section>
 
@@ -1891,7 +1890,7 @@ function cacheDom() {
     "mainBalls", "numsBasis", "savedList", "savedCount",
     "confirmPanel", "confirmBadge", "confirmText", "btnConfirm", "btnUnconfirm",
     "checkResult", "mapBox", "shopList",
-    "drawStatus", "drawNote", "btnSyncDraw", "drawIssue", "drawDate", "drawStats",
+    "drawStatus", "drawNote", "drawIssue", "drawDate", "drawStats",
     "lastDrawBalls",
     "mapConfigBody", "btnMapConfig", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay",
     "skyCard", "numsCountdown", "btnCopy", "btnRules", "rulesBody",
@@ -2549,7 +2548,7 @@ function renderConfirmView() {
     var label = drawDateLabel(c.drawDate);
     if (drawResultShouldBeOut(c.drawDate)) {
       text = "<b>" + label + "</b> 这期应该已经开奖了，但还没拿到官网数据。" +
-        "点下面「立即同步」可以手动拉一次。";
+        "页面会自动重试，结果拿到后这里自动比对。";
     } else {
       text = "还没开奖。这组号等 <b>" + label + "</b> 那期，" +
         STOP_SALE_CLOCK + " 停售、" + DRAW_CLOCK +
@@ -2575,7 +2574,7 @@ function renderConfirmView() {
 function checkAgainstLastDraw() {
   if (!state.lastDraw.blue && !state.lastDraw.reds.join("")) {
     dom.checkResult.className = "result result--none";
-    dom.checkResult.textContent = "还没有开奖数据。点「立即同步」拉一次。";
+    dom.checkResult.textContent = "还没有开奖数据，等自动同步拿到上期结果就能试算。";
     return;
   }
 
@@ -2862,15 +2861,13 @@ function requestDraw(url) {
 }
 
 /** 拉取最新一期开奖，失败时保留已有数据 */
-function syncLatestDraw(options) {
-  var manual = options && options.manual;
+function syncLatestDraw() {
   if (drawSyncInFlight) return;
 
   var targets = drawApiCandidates();
   var isLocalFile = window.location.protocol === "file:";
 
   drawSyncInFlight = true;
-  if (manual) setDrawStatus("loading", "同步中…");
 
   function attemptAt(index) {
     if (index >= targets.length) {
@@ -2908,17 +2905,14 @@ function syncLatestDraw(options) {
       if (isLocalFile) {
         tip = "本地文件直接打开时浏览器禁止联网，取不到开奖数据。双击 start.bat 启动本地服务后刷新本页即可自动同步；也可以直接访问线上版。";
       } else if (isLocalHostPage()) {
-        tip = "取不到开奖数据（" + reason + "）。确认 start.bat 的窗口还开着，再点「立即同步」试一次。";
+        tip = "取不到开奖数据（" + reason + "）。确认 start.bat 的窗口还开着，页面每隔几分钟会自动重试。";
       } else {
         tip = "取不到开奖数据（" + reason +
-          "）。线上版读的是仓库里存好的那份快照，还没跟上最新一期；稍后点「立即同步」再试，或等自动同步。";
+          "）。线上版读的是仓库里存好的那份快照，还没跟上最新一期；页面会自动重试，等同步跑完刷新即可。";
       }
 
       if (dom.drawNote) {
         dom.drawNote.textContent = tip;
-      }
-      if (manual) {
-        showToast(isLocalFile ? "本地文件取不到数据，请用 start.bat 打开" : "同步失败，稍后再试");
       }
     });
 }
@@ -3793,9 +3787,6 @@ function bindEvents() {
   });
 
   document.getElementById("btnCheckDraw").addEventListener("click", checkAgainstLastDraw);
-  document.getElementById("btnSyncDraw").addEventListener("click", function onSyncDraw() {
-    syncLatestDraw({ manual: true });
-  });
 
   // 地图
   document.getElementById("btnOpenMap").addEventListener("click", openAmapSearch);
