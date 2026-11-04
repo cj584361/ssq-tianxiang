@@ -165,6 +165,12 @@ function readJson(resp, label) {
 
 /* ---------------- 抓官网 ---------------- */
 
+/** 数字字段可能是 "342,910,496" 或带空格，去掉非数字再转，避免 parseInt 直接给 NaN */
+function toAmount(value) {
+  var digits = String(value === undefined || value === null ? '' : value).replace(/[^\d]/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+}
+
 /** 官网字段 → 前端要的形状，跟 scripts/sync-draw.js 的 normalize 保持一致 */
 function normalize(item) {
   var reds = String(item.red || '')
@@ -178,12 +184,14 @@ function normalize(item) {
 
   return {
     issue: String(item.code || ''),
-    date: String(item.date || '').replace(/\(.*\)$/, ''),
+    /* 官网给 "2026-11-03(二)"，要裁成 "2026-11-03"。
+       不用正则的 $ 锚点——AirScript 里实测会漏，split 更稳。全角括号一起处理。 */
+    date: String(item.date || '').split('(')[0].split('（')[0].trim(),
     week: String(item.week || ''),
     reds: reds,
     blue: parseInt(item.blue, 10),
-    sales: Number(item.sales) || 0,
-    pool: Number(item.poolmoney) || 0,
+    sales: toAmount(item.sales),
+    pool: toAmount(item.poolmoney),
     detail: item.detailsLink ? 'https://www.cwl.gov.cn' + item.detailsLink : ''
   };
 }

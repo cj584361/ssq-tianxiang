@@ -2704,6 +2704,11 @@ function countDrawDaysBetween(fromKey, toKey) {
   return count;
 }
 
+/** 上游日期可能带星期后缀（"2026-11-03(二)" 或全角括号），统一裁成 YYYY-MM-DD */
+function cleanDrawDate(value) {
+  return String(value || "").replace(/[（(].*$/, "").trim().slice(0, 10);
+}
+
 /** 把接口数据落到状态和界面上 */
 function applyDrawData(data, stale, meta) {
   var reds = (data.reds || []).map(pad2);
@@ -2725,7 +2730,8 @@ function applyDrawData(data, stale, meta) {
     issue: data.issue,
     reds: reds,
     blue: blue,
-    date: data.date || "",
+    /* 上游可能给 "2026-11-03(二)"，裁成 "2026-11-03"，否则跟开奖日比对会失配 */
+    date: cleanDrawDate(data.date),
     week: data.week || "",
     sales: data.sales || 0,
     pool: data.pool || 0
