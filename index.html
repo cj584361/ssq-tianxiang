@@ -1136,7 +1136,6 @@
     </div>
 
     <div class="draw-edit-toggle" style="gap:var(--sp-4)">
-      <button class="link-btn" id="btnEditDraw" type="button">手动填写 / 修正</button>
       <button class="link-btn" id="btnRules" type="button">奖级对照</button>
     </div>
 
@@ -1156,27 +1155,8 @@
       </div>
     </div>
 
-    <div class="fold-body" id="drawEditBody">
-      <div class="field">
-        <label class="field-label" for="issueInput">期号（可留空）</label>
-        <input class="input" id="issueInput" type="text" inputmode="numeric" placeholder="例如 2026123">
-      </div>
-
-      <div class="field">
-        <label class="field-label">红球 6 个（1–33）</label>
-        <div class="pick-group" id="lastReds"></div>
-      </div>
-
-      <div class="field">
-        <label class="field-label">蓝球 1 个（1–16）</label>
-        <div style="width:76px">
-          <input class="input input--num" id="lastBlue" type="text" inputmode="numeric" maxlength="2" placeholder="—">
-        </div>
-      </div>
-
-      <div class="card-note" id="drawNote" style="line-height:1.7;">
-        数据取自中国福彩官网。联网失败时可在这里手动填写，收起后照样能比对。
-      </div>
+    <div class="card-note" id="drawNote" style="line-height:1.7;">
+      开奖数据自动从中国福彩官网同步，无需手动录入。连不上时点「立即同步」再试一次。
     </div>
   </section>
 
@@ -1910,10 +1890,10 @@ function cacheDom() {
     "moonName", "moonNote", "moonFill", "yiItems", "jiItems", "yijiSource",
     "mainBalls", "numsBasis", "savedList", "savedCount",
     "confirmPanel", "confirmBadge", "confirmText", "btnConfirm", "btnUnconfirm",
-    "issueInput", "lastReds", "lastBlue", "checkResult", "mapBox", "shopList",
+    "checkResult", "mapBox", "shopList",
     "drawStatus", "drawNote", "btnSyncDraw", "drawIssue", "drawDate", "drawStats",
-    "lastDrawBalls", "btnEditDraw", "drawEditBody",
-    "mapConfigBody", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay",
+    "lastDrawBalls",
+    "mapConfigBody", "btnMapConfig", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay",
     "skyCard", "numsCountdown", "btnCopy", "btnRules", "rulesBody",
     "chartCard", "chartTabs", "chartBox", "chartMeta", "chartFoot"
   ];
@@ -2090,21 +2070,6 @@ function renderSaved() {
   }).join("");
 }
 
-/** 渲染上期开奖录入框（手动填写态） */
-function renderLastDrawInputs() {
-  dom.issueInput.value = state.lastDraw.issue;
-  dom.lastBlue.value = state.lastDraw.blue;
-
-  dom.lastReds.innerHTML = state.lastDraw.reds.map(function toInput(value, index) {
-    return (
-      '<div style="flex:1">' +
-      '<input class="input input--num" type="text" inputmode="numeric" maxlength="2" ' +
-      'data-red-index="' + index + '" value="' + value + '" placeholder="' + (index + 1) + '">' +
-      "</div>"
-    );
-  }).join("");
-}
-
 /** 缺号时的虚线空球，保持球位不错乱 */
 function emptyBallHtml() {
   return '<span class="ball ball--empty">·</span>';
@@ -2162,7 +2127,6 @@ function renderDrawMeta() {
 
 /** 开奖卡整体重绘 */
 function renderLastDraw() {
-  renderLastDrawInputs();
   renderLastDrawBalls();
   renderDrawMeta();
 }
@@ -2611,7 +2575,7 @@ function renderConfirmView() {
 function checkAgainstLastDraw() {
   if (!state.lastDraw.blue && !state.lastDraw.reds.join("")) {
     dom.checkResult.className = "result result--none";
-    dom.checkResult.textContent = "还没有开奖数据。先点「立即同步」，或在下面手动填写。";
+    dom.checkResult.textContent = "还没有开奖数据。点「立即同步」拉一次。";
     return;
   }
 
@@ -2664,7 +2628,7 @@ function checkAgainstLastDraw() {
 /* ==================================================================
  * 七、开奖数据同步
  * 数据取自中国福彩官网，经 server.js 同源转发，绕开浏览器跨域限制。
- * 拉不到就退回手动填写，不阻塞任何本地功能。
+ * 拉不到就保留上次结果并说明原因，不阻塞任何本地功能。
  * ================================================================== */
 
 /** 常规同步间隔：一期结果不会变，8 分钟足够 */
@@ -2751,7 +2715,7 @@ function applyDrawData(data, stale, meta) {
 
   var previous = state.lastDraw;
   var changed = previous.issue !== data.issue;
-  /* 号码没变就别重建整卡，否则用户正在手动填写时会被打断 */
+  /* 号码没变就别重建整卡，只刷新文字部分 */
   var sameNumbers =
     !changed &&
     previous.reds.join(",") === reds.join(",") &&
@@ -2936,24 +2900,19 @@ function syncLatestDraw(options) {
       var reason = error && error.message ? error.message : "网络异常";
       var tip;
       if (isLocalFile) {
-        tip = "本地文件直接打开时取不到数据。双击 start.bat 启动服务后刷新本页，就能自动同步；也可以在这里手动填写。";
+        tip = "本地文件直接打开时浏览器禁止联网，取不到开奖数据。双击 start.bat 启动本地服务后刷新本页即可自动同步；也可以直接访问线上版。";
       } else if (isLocalHostPage()) {
-        tip = "取不到开奖数据（" + reason + "）。确认 start.bat 的窗口还开着；也可以在这里手动填写。";
+        tip = "取不到开奖数据（" + reason + "）。确认 start.bat 的窗口还开着，再点「立即同步」试一次。";
       } else {
         tip = "取不到开奖数据（" + reason +
-          "）。线上这版是纯静态页，只能读仓库里存好的那份数据——福彩官网只对国内 IP 开放，" +
-          "GitHub 的服务器抓不到，所以它不会自己更新。想让线上跟着更新，双击 start.bat 同步一次就会推上去；" +
-          "也可以在这里手动填写。";
+          "）。线上版读的是仓库里存好的那份快照，还没跟上最新一期；稍后点「立即同步」再试，或等自动同步。";
       }
 
       if (dom.drawNote) {
         dom.drawNote.textContent = tip;
       }
-      if (dom.drawEditBody) {
-        dom.drawEditBody.classList.add("fold-body--open");
-      }
-      if (manual || isLocalFile) {
-        showToast(isLocalFile ? "未连上本地服务，可手动填写" : "同步失败，可手动填写");
+      if (manual) {
+        showToast(isLocalFile ? "本地文件取不到数据，请用 start.bat 打开" : "同步失败，稍后再试");
       }
     });
 }
@@ -3825,42 +3784,6 @@ function bindEvents() {
     writeStorage(STORAGE_KEYS.savedNumbers, state.savedNumbers);
     renderSaved();
     showToast("已删除");
-  });
-
-  // 上期开奖录入
-  dom.issueInput.addEventListener("input", function onIssue(event) {
-    var value = event.target.value.trim();
-    /* 期号一改，同步来的日期和奖池就对不上了，一并清掉 */
-    if (value !== state.lastDraw.issue) {
-      state.lastDraw.date = "";
-      state.lastDraw.week = "";
-      state.lastDraw.sales = 0;
-      state.lastDraw.pool = 0;
-    }
-    state.lastDraw.issue = value;
-    writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
-    renderDrawMeta();
-  });
-
-  dom.lastReds.addEventListener("input", function onRedInput(event) {
-    var input = event.target.closest("[data-red-index]");
-    if (!input) return;
-    var index = Number(input.getAttribute("data-red-index"));
-    state.lastDraw.reds[index] = input.value.replace(/\D/g, "").slice(0, 2);
-    writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
-    renderLastDrawBalls();
-  });
-
-  dom.lastBlue.addEventListener("input", function onBlue(event) {
-    dom.lastBlue.value = dom.lastBlue.value.replace(/\D/g, "").slice(0, 2);
-    state.lastDraw.blue = dom.lastBlue.value;
-    writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
-    renderLastDrawBalls();
-  });
-
-  document.getElementById("btnEditDraw").addEventListener("click", function onToggleEdit() {
-    var opened = dom.drawEditBody.classList.toggle("fold-body--open");
-    this.textContent = opened ? "收起" : "手动填写 / 修正";
   });
 
   document.getElementById("btnCheckDraw").addEventListener("click", checkAgainstLastDraw);
