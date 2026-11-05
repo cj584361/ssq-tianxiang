@@ -487,6 +487,11 @@
     font-weight: 500;
   }
 
+  /* 号源那一行：比天象依据再弱一级，别抢视线 */
+  .nums-seed {
+    opacity: .7;
+  }
+
   /* ---------- 确认区 ---------- */
   .confirm-panel {
     margin-top: var(--sp-5);
@@ -1365,7 +1370,9 @@ var STORAGE_KEYS = {
   amapKey: "sky.ssq.amapkey.v1",
   amapSecurity: "sky.ssq.amapsec.v1",
   confirmed: "sky.ssq.confirmed.v1",
-  salt: "sky.ssq.salt.v1"
+  salt: "sky.ssq.salt.v1",
+  /* 号源：参与取号的个人随机数，让同一天不同人不会算出同一组号 */
+  seedSource: "sky.ssq.seedsource.v1"
 };
 
 /* ==================================================================
@@ -1719,10 +1726,11 @@ function createRandom(seed) {
  * 红球用 Fisher–Yates 洗牌后取前 6 个并升序，蓝球独立抽取。
  * @param {string} basisText - 参与计算的天象文本（干支 + 建除 + 五行 + 日期）
  * @param {number} salt - 序号，用于「换一组」
+ * @param {number} seedSource - 个人号源，把人跟人区分开
  * @returns {{ reds: number[], blue: number }} 红球升序数组与蓝球
  */
-function drawNumbers(basisText, salt) {
-  var random = createRandom(hashSeed(basisText + "#" + salt));
+function drawNumbers(basisText, salt, seedSource) {
+  var random = createRandom(hashSeed(basisText + "#" + seedSource + "#" + salt));
 
   var pool = [];
   for (var i = SSQ_RULES.redMin; i <= SSQ_RULES.redMax; i++) {
@@ -1745,6 +1753,42 @@ function drawNumbers(basisText, salt) {
 }
 
 /**
+ * 生成一个 6 位号源。
+ * 刻意避开 0 开头（会变成 5 位，手抄到手机上容易看错）。
+ * 这里用 Math.random 而不是种子算法——要的就是不可预测。
+ * @returns {number} 100000–999999
+ */
+function randomSeedSource() {
+  return 100000 + Math.floor(Math.random() * 900000);
+}
+
+/**
+ * 定下本次使用的号源，优先级：网址 ?seed= > 本机存过的 > 新随机一个。
+ *
+ * 为什么要 ?seed=：号源存在 localStorage 里，换个设备就是新的，
+ * 手机和电脑会算出不同号码。把电脑上的号源拼到网址后面，
+ * 两边就对得上了。
+ * @returns {number} 6 位号源
+ */
+function resolveSeedSource() {
+  var match = /[?&]seed=(\d{1,9})/.exec(window.location.search);
+  if (match) {
+    var fromUrl = parseInt(match[1], 10);
+    if (fromUrl > 0) {
+      writeStorage(STORAGE_KEYS.seedSource, fromUrl);
+      return fromUrl;
+    }
+  }
+
+  var stored = parseInt(readStorage(STORAGE_KEYS.seedSource, 0), 10);
+  if (stored > 0) return stored;
+
+  var fresh = randomSeedSource();
+  writeStorage(STORAGE_KEYS.seedSource, fresh);
+  return fresh;
+}
+
+/**
  * 生成一组号码及其「取号依据」文本。
  * 依据文本同时作为算法种子，保证「显示什么就按什么算」。
  * @param {object} almanac - computeAlmanac 的返回值
@@ -1762,7 +1806,7 @@ function generateDraw(almanac, salt) {
     almanac.solarTermName
   ].join("|");
 
-  var numbers = drawNumbers(basisText, salt);
+  var numbers = drawNumbers(basisText, salt, state.seedSource);
   return {
     reds: numbers.reds,
     blue: numbers.blue,
@@ -1828,6 +1872,12 @@ var state = {
   /* 取号专用：本期开奖日那天的天象。一期一组，不随打开日期变 */
   drawAlmanac: null,
   salt: 0,
+  /**
+   * 号源：6 位个人随机数，参与种子计算。
+   * 没有它，同一天、同一个 salt 谁算都是同一组号——两人买成同一注，
+   * 中了一等奖要按注数平分。首次打开随机生成，之后固定在本机。
+   */
+  seedSource: 0,
   savedNumbers: [],
   lastDraw: {
     issue: "",
@@ -1987,7 +2037,9 @@ function renderNumbers() {
     a.solarTermName +
     "<br>" + (isHistory
       ? "回看某一天就用那天的天象，换日期就换号"
-      : "一期一组，开奖前不管哪天打开都是这组号");
+      : "一期一组，开奖前不管哪天打开都是这组号") +
+    '<br><span class="nums-seed">号源 ' + state.seedSource +
+    " · 换设备时在网址后加 <b>?seed=" + state.seedSource + "</b> 就能对齐</span>";
 
   /* 号码变了，确认区的「是否仍是这组」要跟着刷新 */
   renderConfirmView();
@@ -3867,6 +3919,8 @@ function bootstrap() {
   state.amapSecurity = readStorage(STORAGE_KEYS.amapSecurity, "");
   state.confirmed = readStorage(STORAGE_KEYS.confirmed, null);
   state.salt = Number(readStorage(STORAGE_KEYS.salt, 0)) || 0;
+  /* 号源要在第一次算号之前定下来，否则会先按 0 算出一组再跳一次 */
+  state.seedSource = resolveSeedSource();
 
   if (state.amapKey) {
     dom.amapKeyInput.value = state.amapKey;
