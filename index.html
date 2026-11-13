@@ -492,6 +492,93 @@
     opacity: .7;
   }
 
+  /* ---------- 注数选择 ---------- */
+  .ticket-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    margin-top: var(--sp-4);
+  }
+
+  .ticket-bar-label {
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+    margin-right: var(--sp-1);
+  }
+
+  .ticket-step {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ticket-step:active {
+    background: var(--surface-3);
+  }
+
+  .ticket-step:disabled {
+    opacity: .3;
+    cursor: default;
+  }
+
+  .ticket-value {
+    min-width: 16px;
+    text-align: center;
+    font-size: var(--fs-md);
+    font-weight: 500;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ticket-amount {
+    font-size: var(--fs-xs);
+    color: var(--ink-3);
+    margin-left: var(--sp-1);
+  }
+
+  /* 多注：一注一行，球缩到 27px */
+  .ticket-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  .ticket-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  .ticket-no {
+    flex: none;
+    width: 16px;
+    font-size: var(--fs-2xs);
+    color: var(--ink-3);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ticket-row .balls {
+    flex: 1;
+    gap: 5px;
+  }
+
+  /* 窄屏上宁可贴边也别把球压扁 */
+  .ticket-row .ball {
+    flex: none;
+  }
+
   /* ---------- 确认区 ---------- */
   .confirm-panel {
     margin-top: var(--sp-5);
@@ -537,6 +624,27 @@
     font-size: var(--fs-2xs);
     color: var(--ink-3);
   }
+
+  /* 多注判完后的逐注明细 */
+  .confirm-detail {
+    display: block;
+    margin-top: var(--sp-2);
+    padding-top: var(--sp-2);
+    border-top: 1px dashed var(--line);
+  }
+
+  .confirm-line {
+    display: block;
+    font-size: var(--fs-2xs);
+    line-height: 1.9;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .confirm-line b { color: var(--ink-2); font-weight: 500; }
+
+  .confirm-line--win { color: var(--gold); }
+  .confirm-line--win b { color: var(--gold-soft); }
 
   /* 待开奖 */
   .confirm-panel--pending { border-left-color: var(--warn); }
@@ -1097,6 +1205,14 @@
 
     <div class="nums-basis" id="numsBasis">—</div>
 
+    <div class="ticket-bar">
+      <span class="ticket-bar-label">注数</span>
+      <button class="ticket-step" id="btnTicketMinus" type="button" aria-label="减少一注">−</button>
+      <span class="ticket-value" id="ticketValue">1</span>
+      <button class="ticket-step" id="btnTicketPlus" type="button" aria-label="增加一注">+</button>
+      <span class="ticket-amount" id="ticketAmount">2 元</span>
+    </div>
+
     <div class="nums-extra">
       <span class="countdown" id="numsCountdown"></span>
       <button class="link-btn" id="btnCopy" type="button">复制号码</button>
@@ -1190,7 +1306,7 @@
   <section class="card">
     <div class="card-head">
       <div class="card-title">我的号码</div>
-      <div class="card-note" id="savedCount">0 组</div>
+      <div class="card-note" id="savedCount">0 注</div>
     </div>
     <div class="saved-list" id="savedList"></div>
   </section>
@@ -1372,7 +1488,9 @@ var STORAGE_KEYS = {
   confirmed: "sky.ssq.confirmed.v1",
   salt: "sky.ssq.salt.v1",
   /* 号源：参与取号的个人随机数，让同一天不同人不会算出同一组号 */
-  seedSource: "sky.ssq.seedsource.v1"
+  seedSource: "sky.ssq.seedsource.v1",
+  /* 一次买几注，1–5 */
+  ticketCount: "sky.ssq.tickets.v1"
 };
 
 /* ==================================================================
@@ -1814,6 +1932,42 @@ function generateDraw(almanac, salt) {
   };
 }
 
+/** 注数下限 */
+var TICKET_MIN = 1;
+/** 注数上限：实体票一张常见 5 注，1–5 也刚好是 2–10 元的小额区间 */
+var TICKET_MAX = 5;
+/** 每注 2 元。只用来提示花了多少，不做任何收益暗示 */
+var TICKET_PRICE = 2;
+
+/** 把任意输入夹到合法注数 */
+function clampTicketCount(value) {
+  var n = parseInt(value, 10);
+  if (isNaN(n)) return TICKET_MIN;
+  if (n < TICKET_MIN) return TICKET_MIN;
+  if (n > TICKET_MAX) return TICKET_MAX;
+  return n;
+}
+
+/**
+ * 取一批号码。
+ *
+ * 第 i 注用 baseSalt + i，所以注数从 1 改到 3 时，第一注还是原来那注——
+ * 不会因为多买一注就把手上的号全换掉。
+ * @param {object} almanac - computeAlmanac 的返回值
+ * @param {number} baseSalt - 这一批的起始序号
+ * @param {number} count - 要几注
+ * @returns {Array<{salt: number, reds: number[], blue: number}>} 号码数组
+ */
+function drawTickets(almanac, baseSalt, count) {
+  var total = clampTicketCount(count);
+  var list = [];
+  for (var i = 0; i < total; i++) {
+    var one = generateDraw(almanac, baseSalt + i);
+    list.push({ salt: baseSalt + i, reds: one.reds, blue: one.blue });
+  }
+  return list;
+}
+
 /**
  * 判定一组号码对照开奖结果中了几等奖。
  * 奖级依据《中国福利彩票双色球游戏规则》。
@@ -1878,6 +2032,8 @@ var state = {
    * 中了一等奖要按注数平分。首次打开随机生成，之后固定在本机。
    */
   seedSource: 0,
+  /** 一次买几注，1–5。第 i 注用 salt + i，所以注数变了前面几注不变 */
+  ticketCount: 1,
   savedNumbers: [],
   lastDraw: {
     issue: "",
@@ -1938,6 +2094,7 @@ function cacheDom() {
     "termName", "termNote", "dayMaster", "dayMasterNote", "chongSha",
     "moonName", "moonNote", "moonFill", "yiItems", "jiItems", "yijiSource",
     "mainBalls", "numsBasis", "savedList", "savedCount",
+    "ticketValue", "ticketAmount", "btnTicketMinus", "btnTicketPlus",
     "confirmPanel", "confirmBadge", "confirmText", "btnConfirm", "btnUnconfirm",
     "checkResult", "mapBox", "shopList",
     "drawStatus", "drawNote", "drawIssue", "drawDate", "drawStats",
@@ -2014,19 +2171,36 @@ function ballHtml(number, type, small) {
   return '<span class="' + cls + '">' + text + "</span>";
 }
 
-/** 渲染今日号码（每天固定一组，换组靠「换一组」加序号） */
+/** 渲染今日号码（一期 N 注，换号靠「换一批」加序号） */
 function renderNumbers() {
   var a = state.drawAlmanac || state.almanac;
-  var main = generateDraw(a, state.salt);
+  var tickets = drawTickets(a, state.salt, state.ticketCount);
 
-  dom.mainBalls.innerHTML =
-    main.reds.map(function toRed(n) {
-      return ballHtml(n, "red", false);
-    }).join("") +
-    '<span class="ball-sep"></span>' +
-    ballHtml(main.blue, "blue", false);
+  if (tickets.length === 1) {
+    dom.mainBalls.className = "balls";
+    dom.mainBalls.innerHTML =
+      tickets[0].reds.map(function toRed(n) {
+        return ballHtml(n, "red", false);
+      }).join("") +
+      '<span class="ball-sep"></span>' +
+      ballHtml(tickets[0].blue, "blue", false);
+  } else {
+    dom.mainBalls.className = "ticket-list";
+    dom.mainBalls.innerHTML = tickets.map(function toRow(ticket, index) {
+      return '<div class="ticket-row">' +
+        '<span class="ticket-no">' + (index + 1) + "</span>" +
+        '<div class="balls">' +
+        ticket.reds.map(function toRed(n) {
+          return ballHtml(n, "red", true);
+        }).join("") +
+        '<span class="ball-sep"></span>' +
+        ballHtml(ticket.blue, "blue", true) +
+        "</div></div>";
+    }).join("");
+  }
 
   var isHistory = a.dateKey !== targetDrawDateKey(state.activeDate);
+  var count = tickets.length;
 
   dom.numsBasis.innerHTML =
     (isHistory ? "回看 " : "本期按 ") +
@@ -2037,12 +2211,45 @@ function renderNumbers() {
     a.solarTermName +
     "<br>" + (isHistory
       ? "回看某一天就用那天的天象，换日期就换号"
-      : "一期一组，开奖前不管哪天打开都是这组号") +
+      : (count === 1
+        ? "一期一组，开奖前不管哪天打开都是这组号"
+        : "一期 " + count + " 注，开奖前不管哪天打开都是这 " + count + " 注")) +
     '<br><span class="nums-seed">号源 ' + state.seedSource +
     " · 换设备时在网址后加 <b>?seed=" + state.seedSource + "</b> 就能对齐</span>";
 
+  renderTicketBar();
+
   /* 号码变了，确认区的「是否仍是这组」要跟着刷新 */
   renderConfirmView();
+}
+
+/** 注数条的显示：数字、金额、两端按钮是否禁用 */
+function renderTicketBar() {
+  if (!dom.ticketValue) return;
+
+  var n = state.ticketCount;
+  dom.ticketValue.textContent = n;
+  dom.ticketAmount.textContent = (n * TICKET_PRICE) + " 元";
+  dom.btnTicketMinus.disabled = n <= TICKET_MIN;
+  dom.btnTicketPlus.disabled = n >= TICKET_MAX;
+
+  var reroll = document.getElementById("btnReroll");
+  if (reroll) reroll.textContent = n === 1 ? "换一组" : "换一批";
+}
+
+/**
+ * 加减注数。
+ * 只改注数不动 salt，所以原来那几注号码原样保留，新增的往后接。
+ * @param {number} delta - +1 或 -1
+ */
+function changeTicketCount(delta) {
+  var next = clampTicketCount(state.ticketCount + delta);
+  if (next === state.ticketCount) return;
+
+  state.ticketCount = next;
+  writeStorage(STORAGE_KEYS.ticketCount, next);
+  renderNumbers();
+  showToast(next === 1 ? "1 注 · 2 元" : next + " 注 · " + (next * TICKET_PRICE) + " 元");
 }
 
 /** 渲染已保存号码 */
@@ -2085,7 +2292,7 @@ function savedOutcome(item) {
 
 function renderSaved() {
   var list = state.savedNumbers;
-  dom.savedCount.textContent = list.length + " 组";
+  dom.savedCount.textContent = list.length + " 注";
 
   if (!list.length) {
     dom.savedList.innerHTML =
@@ -2311,48 +2518,64 @@ function fallbackCopy(text) {
   document.body.removeChild(area);
 }
 
-/** 把当前主号格式化成可复制的文本 */
+/** 把当前这批号格式化成可复制的文本 */
 function currentDrawText() {
   var a = state.drawAlmanac || state.almanac;
-  var draw = generateDraw(a, state.salt);
-  var reds = draw.reds.map(function pad(n) { return n < 10 ? "0" + n : String(n); }).join(" ");
-  var blue = draw.blue < 10 ? "0" + draw.blue : String(draw.blue);
-  return a.dateKey + " " + a.dayGanzhiText + "日 " +
-    a.spiritName + "日\n红球 " + reds + "　蓝球 " + blue;
-}
+  var tickets = drawTickets(a, state.salt, state.ticketCount);
+  var pad = function withZero(n) { return n < 10 ? "0" + n : String(n); };
+  var head = a.dateKey + " " + a.dayGanzhiText + "日 " + a.spiritName + "日";
 
-/** 保存当前主号 */
-function saveCurrentDraw(options) {
-  var silent = options && options.silent;
-  var draw = generateDraw(state.drawAlmanac || state.almanac, state.salt);
-  var a = state.drawAlmanac || state.almanac;
-
-  var duplicate = state.savedNumbers.some(function isSame(item) {
-    return item.dateKey === a.dateKey &&
-      item.blue === draw.blue &&
-      item.reds.join(",") === draw.reds.join(",");
-  });
-
-  if (duplicate) {
-    if (!silent) showToast("这组还在「我的号码」里");
-    return false;
+  if (tickets.length === 1) {
+    return head + "\n红球 " + tickets[0].reds.map(pad).join(" ") +
+      "　蓝球 " + pad(tickets[0].blue);
   }
 
-  state.savedNumbers.unshift({
-    dateKey: a.dateKey,
-    dateLabel: a.month + "/" + a.day,
-    reds: draw.reds,
-    blue: draw.blue,
-    issue: "",
-    drawDate: (options && options.drawDate) || "",
-    savedAt: Date.now()
+  var lines = tickets.map(function toLine(ticket, index) {
+    return (index + 1) + ". " + ticket.reds.map(pad).join(" ") +
+      " + " + pad(ticket.blue);
   });
 
-  state.savedNumbers = state.savedNumbers.slice(0, 50);
+  return head + " · " + tickets.length + " 注\n" + lines.join("\n");
+}
+
+/**
+ * 把一批号记进「我的号码」。
+ * 确认时整批落底，之后判奖能按号码把期号回填回去。
+ * @param {Array} tickets - drawTickets 的返回值
+ * @param {object} almanac - 取号用的天象
+ * @param {string} drawDate - 目标开奖日
+ * @returns {number} 实际新增条数，重复的不算
+ */
+function saveTickets(tickets, almanac, drawDate) {
+  var added = 0;
+
+  tickets.forEach(function addOne(ticket) {
+    var duplicate = state.savedNumbers.some(function isSame(item) {
+      return item.dateKey === almanac.dateKey &&
+        Number(item.blue) === Number(ticket.blue) &&
+        (item.reds || []).join(",") === ticket.reds.join(",");
+    });
+    if (duplicate) return;
+
+    state.savedNumbers.unshift({
+      dateKey: almanac.dateKey,
+      dateLabel: almanac.month + "/" + almanac.day,
+      reds: ticket.reds.slice(),
+      blue: ticket.blue,
+      issue: "",
+      drawDate: drawDate || "",
+      savedAt: Date.now()
+    });
+    added++;
+  });
+
+  if (!added) return 0;
+
+  /* 5 注一期的话 50 条只够十期，放到 100 */
+  state.savedNumbers = state.savedNumbers.slice(0, 100);
   writeStorage(STORAGE_KEYS.savedNumbers, state.savedNumbers);
   renderSaved();
-  if (!silent) showToast("已收下");
-  return true;
+  return added;
 }
 
 /* ==================================================================
@@ -2411,44 +2634,116 @@ function drawDateLabel(key) {
   return (date.getMonth() + 1) + " 月 " + date.getDate() + " 日 " + WEEKDAY_NAMES[date.getDay()];
 }
 
-/** 确认当前这组号 */
+/**
+ * 两组号码是不是同一批。
+ * 只比号码不比 salt——注数加回来时 salt 会跟着变，
+ * 但号码没变就该认成同一批，不该重复确认。
+ */
+function sameTicketList(left, right) {
+  if (!left || !right || left.length !== right.length) return false;
+  for (var i = 0; i < left.length; i++) {
+    if ((left[i].reds || []).join(",") !== right[i].reds.join(",")) return false;
+    if (Number(left[i].blue) !== Number(right[i].blue)) return false;
+  }
+  return true;
+}
+
+/** 已判完的注数里，中了几注 */
+function countWins(tickets) {
+  return tickets.filter(function hasPrize(ticket) {
+    return ticket.result && ticket.result.prizeName;
+  }).length;
+}
+
+/**
+ * 汇总一组判奖结果：中几注、共多少钱。
+ * 入参既可以是 evaluatePrize 的返回值，也可以是 ticket.result。
+ * 一、二等奖是浮动的（prizeAmount 记为 -1），单独标浮动，不硬凑一个总数。
+ */
+function summarizeResults(list) {
+  var wins = 0;
+  var total = 0;
+  var hasFloat = false;
+
+  list.forEach(function addUp(item) {
+    if (!item || !item.prizeName) return;
+    wins++;
+    if (item.prizeAmount === -1) hasFloat = true;
+    else total += item.prizeAmount;
+  });
+
+  return { wins: wins, total: total, hasFloat: hasFloat };
+}
+
+/**
+ * 旧版把单注直接摊在 confirmed 上（reds/blue/result）。
+ * 新版统一成 tickets 数组，读到旧结构就搬进数组，老数据不作废。
+ */
+function migrateConfirmed(saved) {
+  if (!saved) return null;
+  if (Array.isArray(saved.tickets)) return saved;
+  if (!Array.isArray(saved.reds)) return null;
+
+  return {
+    dateKey: saved.dateKey,
+    drawDate: saved.drawDate,
+    tickets: [{
+      salt: Number(saved.salt) || 0,
+      reds: saved.reds,
+      blue: saved.blue,
+      result: saved.result || null
+    }]
+  };
+}
+
+/** 确认当前这批号 */
 function confirmDraw() {
   var a = state.drawAlmanac || state.almanac;
-  var draw = generateDraw(a, state.salt);
+  var tickets = drawTickets(a, state.salt, state.ticketCount);
 
   var same =
     state.confirmed &&
     state.confirmed.dateKey === a.dateKey &&
-    state.confirmed.reds.join(",") === draw.reds.join(",") &&
-    state.confirmed.blue === draw.blue;
+    sameTicketList(state.confirmed.tickets, tickets);
 
   if (same) {
-    /* 同一组再点一次：重新判一遍，可能是刚开奖 */
+    /* 同一批再点一次：重新判一遍，可能是刚开奖 */
     evaluateConfirm();
-    if (state.confirmed.result) {
-      showToast(state.confirmed.result.prizeName ? "中奖了：" + state.confirmed.result.prizeName : "未中奖");
+    var settled = state.confirmed.tickets.filter(function done(t) { return t.result; });
+    if (settled.length === state.confirmed.tickets.length) {
+      var wins = countWins(state.confirmed.tickets);
+      showToast(state.confirmed.tickets.length === 1
+        ? (wins ? "中奖了：" + settled[0].result.prizeName : "未中奖")
+        : (wins ? wins + " 注中奖，看看明细" : state.confirmed.tickets.length + " 注都没中"));
     } else {
-      showToast("还是这组，等开奖");
+      showToast("还是这批号，等开奖");
     }
     return;
   }
 
   state.confirmed = {
     dateKey: a.dateKey,
-    salt: state.salt,
-    reds: draw.reds.slice(),
-    blue: draw.blue,
     drawDate: targetDrawDateKey(state.activeDate),
-    result: null
+    tickets: tickets.map(function toEntry(ticket) {
+      return {
+        salt: ticket.salt,
+        reds: ticket.reds.slice(),
+        blue: ticket.blue,
+        result: null
+      };
+    })
   };
   writeStorage(STORAGE_KEYS.confirmed, state.confirmed);
 
   /* 同时留一份底到「我的号码」，之后好回溯 */
-  saveCurrentDraw({ silent: true, drawDate: state.confirmed.drawDate });
+  saveTickets(state.confirmed.tickets, a, state.confirmed.drawDate);
 
   evaluateConfirm();
-  if (!state.confirmed.result) {
-    showToast("还没开奖，等 " + drawDateLabel(state.confirmed.drawDate) + " " + DRAW_CLOCK);
+  var current = state.confirmed;
+  var judged = current.tickets.filter(function done(t) { return t.result; });
+  if (judged.length < current.tickets.length) {
+    showToast((current.tickets.length === 1 ? "这注" : "这 " + current.tickets.length + " 注") +
+      " 等 " + drawDateLabel(current.drawDate) + " " + DRAW_CLOCK);
   }
 }
 
@@ -2463,35 +2758,47 @@ function unconfirmDraw() {
 /**
  * 判断已确认的号有没有结果，有就冻存下来。
  * 只在 lastDraw 恰好是目标那一期时判奖——期号往前走了就无法回溯。
+ * 多注时逐注判，判完的不会重判。
  */
 function evaluateConfirm() {
   var c = state.confirmed;
-  if (!c) {
+  if (!c || !c.tickets || !c.tickets.length) {
     renderConfirmView();
     return;
   }
 
   var draw = state.lastDraw;
-  if (c.result || !draw.date || !draw.issue) {
+  if (!draw.date || !draw.issue) {
     renderConfirmView();
     return;
   }
 
-  if (draw.date === c.drawDate) {
-    var drawReds = (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); });
-    var drawBlue = parseInt(draw.blue, 10);
+  var pending = c.tickets.filter(function notYet(ticket) { return !ticket.result; });
+  if (!pending.length) {
+    renderConfirmView();
+    return;
+  }
 
-    var usable = drawReds.length === SSQ_RULES.redCount &&
-      drawReds.every(function inRange(n) { return !isNaN(n); }) &&
-      !isNaN(drawBlue);
+  if (draw.date !== c.drawDate) {
+    renderConfirmView();
+    return;
+  }
 
-    if (!usable) {
-      renderConfirmView();
-      return;
-    }
+  var drawReds = (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); });
+  var drawBlue = parseInt(draw.blue, 10);
 
-    var prize = evaluatePrize(c.reds, c.blue, drawReds, drawBlue);
-    c.result = {
+  var usable = drawReds.length === SSQ_RULES.redCount &&
+    drawReds.every(function inRange(n) { return !isNaN(n); }) &&
+    !isNaN(drawBlue);
+
+  if (!usable) {
+    renderConfirmView();
+    return;
+  }
+
+  pending.forEach(function judge(ticket) {
+    var prize = evaluatePrize(ticket.reds, ticket.blue, drawReds, drawBlue);
+    ticket.result = {
       issue: draw.issue,
       date: draw.date,
       week: draw.week || "",
@@ -2500,9 +2807,17 @@ function evaluateConfirm() {
       prizeName: prize.prizeName,
       prizeAmount: prize.prizeAmount
     };
-    writeStorage(STORAGE_KEYS.confirmed, c);
-    backfillSavedIssue(c);
-    showToast(prize.prizeName ? "中奖了：" + prize.prizeName : "第 " + draw.issue + " 期未中奖");
+  });
+
+  writeStorage(STORAGE_KEYS.confirmed, c);
+  backfillSavedIssue(c);
+
+  var wins = countWins(c.tickets);
+  if (c.tickets.length === 1) {
+    showToast(wins ? "中奖了：" + c.tickets[0].result.prizeName : "第 " + draw.issue + " 期未中奖");
+  } else {
+    showToast("第 " + draw.issue + " 期 " + c.tickets.length + " 注" +
+      (wins ? "，中 " + wins + " 注" : "都没中"));
   }
 
   renderConfirmView();
@@ -2522,25 +2837,29 @@ function drawResultShouldBeOut(dateKey) {
 
 /**
  * 判奖后把期号回填到「我的号码」里对应的那条记录。
- * 收藏时还不知道期号，这里补上，事后能对上账。
+ * 收藏时还不知道期号，这里逐注补上，事后能对上账。
  */
 function backfillSavedIssue(c) {
   var touched = false;
 
-  state.savedNumbers.forEach(function fill(item) {
-    if (item.issue) return;
-    if (item.dateKey !== c.dateKey) return;
-    if ((item.reds || []).join(",") !== c.reds.join(",")) return;
-    if (Number(item.blue) !== Number(c.blue)) return;
-    item.issue = c.result.issue;
-    item.drawDate = c.result.date;
-    item.result = {
-      prizeName: c.result.prizeName,
-      prizeAmount: c.result.prizeAmount,
-      hitReds: c.result.hitReds,
-      hitBlue: c.result.hitBlue
-    };
-    touched = true;
+  c.tickets.forEach(function fillTicket(ticket) {
+    if (!ticket.result) return;
+
+    state.savedNumbers.forEach(function fill(item) {
+      if (item.issue) return;
+      if (item.dateKey !== c.dateKey) return;
+      if ((item.reds || []).join(",") !== ticket.reds.join(",")) return;
+      if (Number(item.blue) !== Number(ticket.blue)) return;
+      item.issue = ticket.result.issue;
+      item.drawDate = ticket.result.date;
+      item.result = {
+        prizeName: ticket.result.prizeName,
+        prizeAmount: ticket.result.prizeAmount,
+        hitReds: ticket.result.hitReds,
+        hitBlue: ticket.result.hitBlue
+      };
+      touched = true;
+    });
   });
 
   if (touched) {
@@ -2557,68 +2876,118 @@ function renderConfirmView() {
   var a = state.drawAlmanac || state.almanac;
 
   /* 没有确认，或翻到了别的日期，先收起面板 */
-  if (!c || c.dateKey !== a.dateKey) {
+  if (!c || c.dateKey !== a.dateKey || !c.tickets || !c.tickets.length) {
     dom.confirmPanel.hidden = true;
-    if (dom.btnConfirm) dom.btnConfirm.textContent = "确认这组";
+    if (dom.btnConfirm) {
+      dom.btnConfirm.textContent = state.ticketCount > 1
+        ? "确认这 " + state.ticketCount + " 注"
+        : "确认这组";
+    }
     return;
   }
 
   dom.confirmPanel.hidden = false;
 
-  var current = generateDraw(a, state.salt);
-  var sameNumbers =
-    c.reds.join(",") === current.reds.join(",") && c.blue === current.blue;
+  var tickets = c.tickets;
+  var count = tickets.length;
+  var current = drawTickets(a, state.salt, state.ticketCount);
+  var sameNumbers = sameTicketList(tickets, current);
 
   var cls = "confirm-panel";
   var badge = "未开奖";
   var text = "";
 
-  if (c.result) {
-    var r = c.result;
-    var amountText = r.prizeAmount === -1
-      ? "奖金浮动，以官方公告为准"
-      : "奖金 " + r.prizeAmount + " 元";
-    var head = "第 <b>" + r.issue + "</b> 期 · 红球中 <b>" + r.hitReds +
-      "</b> 个，蓝球" + (r.hitBlue ? "<b>命中</b>" : "未中");
+  var settled = tickets.filter(function done(ticket) { return ticket.result; });
 
-    if (r.prizeName) {
-      cls += " confirm-panel--win";
-      badge = "中奖";
-      text = head + "　→　<b>" + r.prizeName + "</b>（" + amountText + "）";
+  if (settled.length === count) {
+    /* 全部判完 */
+    var issue = settled[0].result.issue;
+    var sum = summarizeResults(settled.map(function pickResult(ticket) {
+      return ticket.result;
+    }));
+    var wins = sum.wins;
+
+    if (count === 1) {
+      var r = settled[0].result;
+      var amountText = r.prizeAmount === -1
+        ? "奖金浮动，以官方公告为准"
+        : "奖金 " + r.prizeAmount + " 元";
+      var head = "第 <b>" + issue + "</b> 期 · 红球中 <b>" + r.hitReds +
+        "</b> 个，蓝球" + (r.hitBlue ? "<b>命中</b>" : "未中");
+
+      if (wins) {
+        cls += " confirm-panel--win";
+        badge = "中奖";
+        text = head + "　→　<b>" + r.prizeName + "</b>（" + amountText + "）";
+      } else {
+        cls += " confirm-panel--lose";
+        badge = "未中奖";
+        text = head + "　→　未中奖<small>双色球单注中奖概率约 1/1772 万，没中很正常。</small>";
+      }
     } else {
-      cls += " confirm-panel--lose";
-      badge = "未中奖";
-      text = head + "　→　未中奖<small>双色球单注中奖概率约 1/1772 万，没中很正常。</small>";
+      var summary = "第 <b>" + issue + "</b> 期 · " + count + " 注中 <b>" + wins + "</b> 注";
+
+      if (wins) {
+        cls += " confirm-panel--win";
+        badge = "中奖";
+        summary += " · 合计 <b>" + sum.total + " 元</b>" +
+          (sum.hasFloat ? "（一二等奖浮动，以官方公告为准）" : "");
+      } else {
+        cls += " confirm-panel--lose";
+        badge = "未中奖";
+      }
+
+      text = summary + '<span class="confirm-detail">' +
+        settled.map(function toLine(ticket, index) {
+          var one = ticket.result;
+          var no = "<b>" + (index + 1) + "</b> ";
+          if (one.prizeName) {
+            return '<span class="confirm-line confirm-line--win">' + no +
+              one.prizeName + "　" +
+              (one.prizeAmount === -1 ? "浮动" : one.prizeAmount + " 元") + "</span>";
+          }
+          return '<span class="confirm-line">' + no + "未中 · 红 " +
+            one.hitReds + " 个" + (one.hitBlue ? " 蓝中" : "") + "</span>";
+        }).join("") + "</span>";
     }
   } else if (c.drawDate && state.lastDraw.date && state.lastDraw.date > c.drawDate) {
     cls += " confirm-panel--muted";
     badge = "已过期";
-    text = "这期已经过去了，但手上只剩更新的开奖数据，没法回查。下次开奖日再确认一次。";
+    text = "这期已经过去了，但手上只剩更新的开奖数据，没法回查。" +
+      (count > 1 ? "这 " + count + " 注" : "这注") + "下次开奖日再确认一次。";
   } else {
     cls += " confirm-panel--pending";
     badge = "未开奖";
     var label = drawDateLabel(c.drawDate);
+    var subject = count > 1 ? "这 " + count + " 注" : "这组号";
+
     if (drawResultShouldBeOut(c.drawDate)) {
       text = "<b>" + label + "</b> 这期应该已经开奖了，但还没拿到官网数据。" +
         "页面会自动重试，结果拿到后这里自动比对。";
     } else {
-      text = "还没开奖。这组号等 <b>" + label + "</b> 那期，" +
+      text = "还没开奖。" + subject + "等 <b>" + label + "</b> 那期，" +
         STOP_SALE_CLOCK + " 停售、" + DRAW_CLOCK +
         " 开奖，结果公布后这里自动比对，不用再点。";
     }
   }
 
   if (!sameNumbers) {
-    text += "<small>以上是你确认的那组（" +
-      c.reds.map(function pad(n) { return n < 10 ? "0" + n : String(n); }).join(" ") +
-      " ｜ " + (c.blue < 10 ? "0" + c.blue : String(c.blue)) +
-      "），当前显示的是换过的新号码。</small>";
+    if (count === 1) {
+      text += "<small>以上是你确认的那组（" +
+        tickets[0].reds.map(function pad(n) { return n < 10 ? "0" + n : String(n); }).join(" ") +
+        " ｜ " + (tickets[0].blue < 10 ? "0" + tickets[0].blue : String(tickets[0].blue)) +
+        "），当前显示的是换过的新号码。</small>";
+    } else {
+      text += "<small>以上是你确认的那 " + count + " 注，当前显示的是换过的新号码。</small>";
+    }
   }
 
   dom.confirmPanel.className = cls;
   dom.confirmBadge.textContent = badge;
   dom.confirmText.innerHTML = text;
-  dom.btnConfirm.textContent = sameNumbers ? "已确认" : "确认这组";
+  dom.btnConfirm.textContent = sameNumbers
+    ? "已确认"
+    : (state.ticketCount > 1 ? "确认这 " + state.ticketCount + " 注" : "确认这组");
 }
 
 
@@ -2659,21 +3028,47 @@ function checkAgainstLastDraw() {
     return;
   }
 
-  var draw = generateDraw(state.drawAlmanac || state.almanac, state.salt);
-  var prize = evaluatePrize(draw.reds, draw.blue, reds, blue);
+  var tickets = drawTickets(state.drawAlmanac || state.almanac, state.salt, state.ticketCount);
+  var prizes = tickets.map(function judge(ticket) {
+    return evaluatePrize(ticket.reds, ticket.blue, reds, blue);
+  });
 
-  if (prize.prizeName) {
-    var amountText = prize.prizeAmount === -1 ? "奖金浮动，以官方公告为准" : "奖金 " + prize.prizeAmount + " 元";
-    dom.checkResult.className = "result result--win";
-    dom.checkResult.innerHTML =
-      "红球中 <b>" + prize.hitReds + "</b> 个，蓝球" + (prize.hitBlue ? "<b>命中</b>" : "未中") +
-      "　→　<b>" + prize.prizeName + "</b>（" + amountText + "）";
-  } else {
-    dom.checkResult.className = "result result--lose";
-    dom.checkResult.innerHTML =
-      "红球中 <b>" + prize.hitReds + "</b> 个，蓝球" + (prize.hitBlue ? "命中" : "未中") +
-      "　→　未中奖。双色球单注中奖概率约 1/1772 万，这是正常的。";
+  if (tickets.length === 1) {
+    var prize = prizes[0];
+    if (prize.prizeName) {
+      var amountText = prize.prizeAmount === -1 ? "奖金浮动，以官方公告为准" : "奖金 " + prize.prizeAmount + " 元";
+      dom.checkResult.className = "result result--win";
+      dom.checkResult.innerHTML =
+        "红球中 <b>" + prize.hitReds + "</b> 个，蓝球" + (prize.hitBlue ? "<b>命中</b>" : "未中") +
+        "　→　<b>" + prize.prizeName + "</b>（" + amountText + "）";
+    } else {
+      dom.checkResult.className = "result result--lose";
+      dom.checkResult.innerHTML =
+        "红球中 <b>" + prize.hitReds + "</b> 个，蓝球" + (prize.hitBlue ? "命中" : "未中") +
+        "　→　未中奖。双色球单注中奖概率约 1/1772 万，这是正常的。";
+    }
+    return;
   }
+
+  var sum = summarizeResults(prizes);
+  dom.checkResult.className = sum.wins ? "result result--win" : "result result--lose";
+  dom.checkResult.innerHTML =
+    tickets.length + " 注对照上期，中 <b>" + sum.wins + "</b> 注" +
+    (sum.wins
+      ? "　合计 <b>" + sum.total + " 元</b>" + (sum.hasFloat ? "（含浮动奖金）" : "")
+      : "。单注中奖概率约 1/1772 万，全没中是常态。") +
+    '<span class="confirm-detail">' +
+    prizes.map(function toLine(one, index) {
+      var head = "<b>" + (index + 1) + "</b> 红 " + one.hitReds +
+        (one.hitBlue ? " 蓝中" : " 蓝未中") + "　";
+      if (one.prizeName) {
+        return '<span class="confirm-line confirm-line--win">' + head +
+          one.prizeName + "　" +
+          (one.prizeAmount === -1 ? "浮动" : one.prizeAmount + " 元") + "</span>";
+      }
+      return '<span class="confirm-line">' + head + "未中</span>";
+    }).join("") +
+    "</span>";
 }
 
 /* ==================================================================
@@ -3818,10 +4213,21 @@ function bindEvents() {
   });
 
   document.getElementById("btnReroll").addEventListener("click", function onReroll() {
-    state.salt += 1;
+    /* 整批换：skip 满一整批，保证这一批跟上一批不重叠 */
+    state.salt += state.ticketCount;
     writeStorage(STORAGE_KEYS.salt, state.salt);
     renderNumbers();
-    showToast(state.confirmed ? "已换号，确认的仍是原来那组" : "换了一组");
+    showToast(state.confirmed
+      ? "已换号，确认的仍是原来那组"
+      : (state.ticketCount === 1 ? "换了一组" : "换了一批"));
+  });
+
+  dom.btnTicketMinus.addEventListener("click", function onMinus() {
+    changeTicketCount(-1);
+  });
+
+  dom.btnTicketPlus.addEventListener("click", function onPlus() {
+    changeTicketCount(1);
   });
 
   dom.btnConfirm.addEventListener("click", confirmDraw);
@@ -3917,10 +4323,11 @@ function bootstrap() {
   });
   state.amapKey = readStorage(STORAGE_KEYS.amapKey, "");
   state.amapSecurity = readStorage(STORAGE_KEYS.amapSecurity, "");
-  state.confirmed = readStorage(STORAGE_KEYS.confirmed, null);
+  state.confirmed = migrateConfirmed(readStorage(STORAGE_KEYS.confirmed, null));
   state.salt = Number(readStorage(STORAGE_KEYS.salt, 0)) || 0;
   /* 号源要在第一次算号之前定下来，否则会先按 0 算出一组再跳一次 */
   state.seedSource = resolveSeedSource();
+  state.ticketCount = clampTicketCount(readStorage(STORAGE_KEYS.ticketCount, 1));
 
   if (state.amapKey) {
     dom.amapKeyInput.value = state.amapKey;
