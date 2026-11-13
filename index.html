@@ -77,7 +77,7 @@
     font-size: var(--fs-md);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
-    /* 连点两下不要放大：manipulation 关掉双击缩放，但保留拖动和双指缩放地图 */
+    /* 连点两下不要放大：manipulation 关掉双击缩放，但保留拖动和双指缩放 */
     touch-action: manipulation;
     -ms-touch-action: manipulation;
     /* 防止横竖屏切换时系统擅自放大字号 */
@@ -97,8 +97,7 @@
     user-select: none;
   }
 
-  input, textarea, select,
-  .input {
+  input, textarea, select {
     -webkit-user-select: text;
     user-select: text;
   }
@@ -332,48 +331,6 @@
     border-radius: var(--r-full);
     background: linear-gradient(90deg, var(--gold-dark), var(--gold-soft));
     transition: width .3s ease;
-  }
-
-  /* ---------- 宜忌 ---------- */
-  .yiji {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
-  }
-
-  .yiji-row {
-    display: flex;
-    gap: var(--sp-3);
-    align-items: flex-start;
-  }
-
-  .yiji-tag {
-    flex: none;
-    width: 26px;
-    height: 26px;
-    border-radius: var(--r-sm);
-    display: grid;
-    place-items: center;
-    font-size: var(--fs-sm);
-    font-weight: 700;
-    margin-top: 1px;
-  }
-
-  .yiji-tag--yi  { background: rgba(95,169,124,.16); color: var(--ok); border: 1px solid rgba(95,169,124,.35); }
-  .yiji-tag--ji  { background: rgba(207,83,64,.14); color: var(--red-soft); border: 1px solid rgba(207,83,64,.32); }
-
-  .yiji-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sp-2);
-  }
-
-  .yiji-item {
-    font-size: var(--fs-sm);
-    color: var(--ink-2);
-    padding: 2px var(--sp-2);
-    border-radius: var(--r-sm);
-    background: var(--surface-2);
   }
 
   /* ---------- 号码球 ---------- */
@@ -723,48 +680,6 @@
     border-radius: var(--r-sm);
   }
 
-  /* ---------- 表单 ---------- */
-  .field {
-    margin-bottom: var(--sp-3);
-  }
-
-  .field-label {
-    display: block;
-    font-size: var(--fs-xs);
-    color: var(--ink-3);
-    margin-bottom: var(--sp-2);
-    letter-spacing: .04em;
-  }
-
-  .input {
-    width: 100%;
-    height: 42px;
-    border-radius: var(--r-md);
-    border: 1px solid var(--line);
-    background: var(--surface-2);
-    color: var(--ink);
-    padding: 0 var(--sp-3);
-    font-size: var(--fs-md);
-    font-family: inherit;
-    outline: none;
-    transition: border-color .15s;
-  }
-
-  .input:focus { border-color: var(--gold-dark); }
-  .input::placeholder { color: var(--ink-3); }
-
-  .input--num {
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* 号码录入：6 红 + 1 蓝 小格 */
-  .pick-group {
-    display: flex;
-    gap: var(--sp-1);
-    flex: 1;
-  }
-
   /* ---------- 结果条 ---------- */
   .result {
     margin-top: var(--sp-4);
@@ -917,45 +832,6 @@
     line-height: 1.8;
   }
 
-  /* ---------- 地图 ---------- */
-  .map-box {
-    height: 240px;
-    border-radius: var(--r-md);
-    overflow: hidden;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    display: grid;
-    place-items: center;
-    text-align: center;
-    padding: var(--sp-4);
-  }
-
-  .map-hint {
-    font-size: var(--fs-sm);
-    color: var(--ink-3);
-    line-height: 1.8;
-  }
-
-  .shop-list {
-    margin-top: var(--sp-3);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-  }
-
-  .shop-item {
-    padding: var(--sp-3);
-    border-radius: var(--r-sm);
-    background: var(--surface-2);
-    font-size: var(--fs-sm);
-    display: flex;
-    justify-content: space-between;
-    gap: var(--sp-3);
-  }
-
-  .shop-name { color: var(--ink); }
-  .shop-dist { color: var(--ink-3); font-size: var(--fs-xs); flex: none; font-variant-numeric: tabular-nums; }
-
   /* ---------- 免责 ---------- */
   .disclaimer {
     margin-top: var(--sp-6);
@@ -1083,9 +959,7 @@
   @media (max-width: 520px) {
     input,
     textarea,
-    select,
-    .input,
-    .input--num {
+    select {
       font-size: 16px;
     }
   }
@@ -1095,9 +969,7 @@
   .btn,
   .ball,
   .chip,
-  .card-title,
-  .shop-item,
-  .alt-row {
+  .card-title {
     -webkit-user-select: none;
     user-select: none;
     touch-action: manipulation;
@@ -1139,17 +1011,14 @@
       <div class="sky-cell">
         <div class="sky-cell-k">节 气</div>
         <div class="sky-cell-v" id="termName">—</div>
-        <div class="sky-cell-x" id="termNote">—</div>
       </div>
       <div class="sky-cell">
         <div class="sky-cell-k">日 主</div>
         <div class="sky-cell-v" id="dayMaster">—</div>
-        <div class="sky-cell-x" id="dayMasterNote">—</div>
       </div>
       <div class="sky-cell">
         <div class="sky-cell-k">冲 煞</div>
         <div class="sky-cell-v" id="chongSha">—</div>
-        <div class="sky-cell-x">日支所冲，行事避开该方位</div>
       </div>
       <div class="sky-cell">
         <div class="sky-cell-k">月 相</div>
@@ -1263,68 +1132,6 @@
     <div class="saved-list" id="savedList"></div>
   </section>
 
-  <!-- ============ 宜忌 ============ -->
-  <section class="card">
-    <div class="card-head">
-      <div class="card-title">今日宜忌</div>
-      <div class="card-note" id="yijiSource">依十二建星</div>
-    </div>
-    <div class="yiji">
-      <div class="yiji-row">
-        <div class="yiji-tag yiji-tag--yi">宜</div>
-        <div class="yiji-items" id="yiItems"></div>
-      </div>
-      <div class="yiji-row">
-        <div class="yiji-tag yiji-tag--ji">忌</div>
-        <div class="yiji-items" id="jiItems"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ 周边彩票店 ============ -->
-  <section class="card">
-    <div class="card-head">
-      <div class="card-title">周边彩票店</div>
-      <div class="card-note">高德地图</div>
-    </div>
-
-    <div class="map-box" id="mapBox">
-      <div class="map-hint">
-        未配置地图密钥<br>
-        <span style="font-size:11px;">填入高德 Key 后可显示附近店铺</span>
-      </div>
-    </div>
-
-    <div class="btn-row" style="margin-top:var(--sp-3)">
-      <button class="btn btn--sm" id="btnOpenMap" type="button">在高德地图中搜索</button>
-      <button class="btn btn--sm btn--ghost" id="btnMapConfig" type="button">配置密钥</button>
-    </div>
-
-    <div class="fold-body" id="mapConfigBody">
-      <div class="field" style="margin-top:var(--sp-4)">
-        <label class="field-label" for="amapKeyInput">高德 Web 端（JS API）Key</label>
-        <input class="input" id="amapKeyInput" type="text" placeholder="32 位字符，不是 Web 服务 Key" autocomplete="off">
-      </div>
-      <div class="field">
-        <label class="field-label" for="amapSecurityInput">安全密钥 securityJsCode</label>
-        <input class="input" id="amapSecurityInput" type="text" placeholder="2021-12 之后申请的 Key 必须填" autocomplete="off">
-      </div>
-      <div class="card-note" style="line-height:1.75;margin-bottom:var(--sp-3)">
-        两个字符串在同一页面：高德开放平台 → 应用管理 → 我的应用 → 该 Key 右侧「设置」，
-        <b>安全密钥</b>与 Key 成对出现。缺了安全密钥，地图能加载但取不到数据。<br>
-        Key 的类型必须是「Web 端（JS API）」，选成「Web 服务」用不了；若 Key 设了域名白名单，
-        要把当前访问地址加进去。<br>
-        两者都只存你本机，不上传。
-      </div>
-      <div class="btn-row" style="margin-top:0">
-        <button class="btn btn--sm" id="btnSaveKey" type="button">保存</button>
-        <button class="btn btn--sm btn--ghost" id="btnClearKey" type="button">清除</button>
-      </div>
-    </div>
-
-    <div class="shop-list" id="shopList"></div>
-  </section>
-
   <!-- ============ 免责 ============ -->
   <div class="disclaimer">
     <strong>娱乐工具，不是预测。</strong>
@@ -1377,22 +1184,6 @@ var TWELVE_SPIRITS = [
   { name: "闭", desc: "闭塞收藏，宜静不宜动，忌开市出行求医。", good: false }
 ];
 
-/** 十二建星对应的宜 / 忌（传统简表，每项取 5–6 条，避免信息过载） */
-var SPIRIT_YIJI = [
-  { yi: ["出行", "上任", "会友", "上书", "见贵"], ji: ["动土", "开仓", "出货财"] },
-  { yi: ["祭祀", "解除", "扫舍", "疗病", "出行"], ji: ["开张", "上任", "嫁娶", "搬迁"] },
-  { yi: ["祭祀", "祈福", "开市", "交易", "立券"], ji: ["服药", "栽种", "安葬"] },
-  { yi: ["修整", "平治道涂", "嫁娶", "会友"], ji: ["开渠", "栽种", "动土"] },
-  { yi: ["订盟", "签约", "安床", "入学", "嫁娶"], ji: ["出行", "诉讼", "搬迁"] },
-  { yi: ["捕捉", "修造", "嫁娶", "立券"], ji: ["开市", "搬迁", "出行"] },
-  { yi: ["破屋", "坏垣", "求医", "解除"], ji: ["嫁娶", "开市", "动土", "搬迁"] },
-  { yi: ["安床", "祭祀", "祈福", "纳财"], ji: ["登高", "出行", "冒险", "诉讼"] },
-  { yi: ["嫁娶", "开市", "入学", "入宅", "修造"], ji: ["诉讼", "破屋", "动土"] },
-  { yi: ["纳财", "入仓", "收账", "捕捉"], ji: ["开市", "安葬", "出行"] },
-  { yi: ["开市", "出行", "求财", "动土", "修造"], ji: ["安葬", "破土", "诉讼"] },
-  { yi: ["筑堤", "埋藏", "修坟", "纳财"], ji: ["开市", "出行", "求医"] }
-];
-
 /** 二十四节气，索引 0 对应太阳黄经 0°（春分），每 15° 一个 */
 var SOLAR_TERMS = [
   "春分", "清明", "谷雨", "立夏", "小满", "芒种",
@@ -1435,8 +1226,6 @@ var SSQ_RULES = {
 var STORAGE_KEYS = {
   savedNumbers: "sky.ssq.saved.v1",
   lastDraw: "sky.ssq.lastdraw.v1",
-  amapKey: "sky.ssq.amapkey.v1",
-  amapSecurity: "sky.ssq.amapsec.v1",
   confirmed: "sky.ssq.confirmed.v1",
   salt: "sky.ssq.salt.v1",
   /* 号源：参与取号的个人随机数，让同一天不同人不会算出同一组号 */
@@ -1996,10 +1785,7 @@ var state = {
     sales: 0,
     pool: 0
   },
-  amapKey: "",
-  amapSecurity: "",
-  mapInstance: null,
-  /** 已确认的那组号：{ dateKey, salt, reds, blue, drawDate, result } */
+  /** 已确认的那批号：{ dateKey, drawDate, tickets: [{ salt, reds, blue, result }] } */
   confirmed: null
 };
 
@@ -2040,15 +1826,15 @@ var dom = {};
 function cacheDom() {
   var ids = [
     "skyDate", "skySub", "ganzhiRow", "spiritName", "spiritDesc", "spiritBadge",
-    "termName", "termNote", "dayMaster", "dayMasterNote", "chongSha",
-    "moonName", "moonNote", "moonFill", "yiItems", "jiItems", "yijiSource",
+    "termName", "dayMaster", "chongSha",
+    "moonName", "moonNote", "moonFill",
     "mainBalls", "numsBasis", "savedList", "savedCount",
     "ticketValue", "ticketAmount", "btnTicketMinus", "btnTicketPlus",
     "confirmPanel", "confirmBadge", "confirmText", "btnConfirm", "btnUnconfirm",
-    "checkResult", "mapBox", "shopList",
+    "checkResult",
     "drawStatus", "drawNote", "drawIssue", "drawDate", "drawStats",
     "lastDrawBalls",
-    "mapConfigBody", "btnMapConfig", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay",
+    "toast", "btnPrevDay", "btnNextDay",
     "skyCard", "numsCountdown", "btnCopy", "btnRules", "rulesBody"
   ];
   ids.forEach(function bindId(id) {
@@ -2089,26 +1875,14 @@ function renderSky() {
   }
 
   dom.termName.textContent = a.solarTermName;
-  dom.termNote.textContent = a.daysToNextTerm + " 天后交下一个节气";
 
   dom.dayMaster.textContent = a.dayGanzhiText.charAt(0) + a.elementName;
-  dom.dayMasterNote.textContent = "日干五行属" + a.elementName;
 
   dom.chongSha.textContent = "冲" + a.chongZodiac + " · 煞" + a.shaDirection;
 
   dom.moonName.textContent = a.moonPhaseName;
   dom.moonNote.textContent = "月面被照亮 " + Math.round(a.moonIllumination * 100) + "%";
   dom.moonFill.style.width = Math.round((a.moonPhase / 360) * 100) + "%";
-
-  // 宜忌
-  var yiji = SPIRIT_YIJI[a.spiritIndex];
-  dom.yijiSource.textContent = "依「" + spirit.name + "日」";
-  dom.yiItems.innerHTML = yiji.yi.map(function toChip(text) {
-    return '<span class="yiji-item">' + text + "</span>";
-  }).join("");
-  dom.jiItems.innerHTML = yiji.ji.map(function toChip(text) {
-    return '<span class="yiji-item">' + text + "</span>";
-  }).join("");
 }
 
 /**
@@ -3401,317 +3175,7 @@ function startDrawSyncLoop() {
 }
 
 /* ==================================================================
- * 八、地图（高德 JS API，按需加载）
- * ================================================================== */
-
-/** 已插入的高德脚本，换 Key 时要能摘掉重来 */
-var amapScriptEl = null;
-
-/** 未定位成功时的默认中心（天安门），避免地图一片空白 */
-var MAP_FALLBACK_CENTER = [116.397428, 39.90923];
-
-/**
- * 动态加载高德 JS API。
- * 只有用户填了 Key 才会走到这里，避免无谓的网络请求。
- * @param {string} key - 高德 Web 端 JS API Key
- * @returns {Promise<void>} 加载完成或失败
- */
-function loadAmapScript(key) {
-  return new Promise(function executor(resolve, reject) {
-    if (window.AMap && window.AMap.Map) {
-      resolve();
-      return;
-    }
-    /* 安全密钥必须早于脚本插入：高德在读取脚本那一刻就去取这个配置 */
-    if (state.amapSecurity) {
-      window._AMapSecurityConfig = { securityJsCode: state.amapSecurity };
-    }
-
-    var script = document.createElement("script");
-    script.src =
-      "https://webapi.amap.com/maps?v=2.0&key=" +
-      encodeURIComponent(key) +
-      /* Geolocation / PlaceSearch 是插件，不声明就是 undefined，new 的时候必炸 */
-      "&plugin=AMap.Geolocation,AMap.PlaceSearch";
-    script.async = true;
-    script.onload = function onLoad() {
-      /* Key 不对时高德照样返回 200，只能看 AMap 有没有成形 */
-      if (window.AMap && window.AMap.Map) {
-        resolve();
-      } else {
-        reject(new Error("高德脚本已返回，但没有生成 AMap 对象（Key 被拒绝，或网络被劫持）"));
-      }
-    };
-    script.onerror = function onError() {
-      reject(new Error("高德脚本请求失败，检查网络或广告拦截插件"));
-    };
-    amapScriptEl = script;
-    document.head.appendChild(script);
-  });
-}
-
-/** 插件兜底：URL 参数没生效时用 AMap.plugin 再要一次 */
-function ensureAmapPlugins() {
-  return new Promise(function executor(resolve, reject) {
-    if (window.AMap.Geolocation && window.AMap.PlaceSearch) {
-      resolve();
-      return;
-    }
-    if (!window.AMap.plugin) {
-      reject(new Error("插件未加载，且当前 AMap 没有 plugin 方法"));
-      return;
-    }
-    var settled = false;
-    var timer = window.setTimeout(function onSlow() {
-      if (settled) return;
-      settled = true;
-      reject(new Error("插件加载超时（8 秒）"));
-    }, 8000);
-    window.AMap.plugin(["AMap.Geolocation", "AMap.PlaceSearch"], function onPlugins() {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
-/** 把高德返回的错误码翻译成下一步该做什么 */
-function amapErrorHint(info) {
-  var code = String(info || "").toUpperCase();
-  if (!code) return "";
-  if (code.indexOf("INVALID_USER_SCODE") >= 0 || code.indexOf("SCODE") >= 0) {
-    return "缺少或填错「安全密钥」。2021 年 12 月后申请的 Key 都必须配 securityJsCode";
-  }
-  if (code.indexOf("INVALID_USER_DOMAIN") >= 0 || code.indexOf("USER_DOMAIN") >= 0) {
-    return "这个 Key 设了域名白名单，" + window.location.origin + " 不在名单里";
-  }
-  if (code.indexOf("INVALID_USER_KEY") >= 0 || code.indexOf("USERKEY") >= 0) {
-    return "Key 不被接受。确认类型是「Web 端（JS API）」而不是「Web 服务」，且没有贴错字符";
-  }
-  if (code.indexOf("OVER_LIMIT") >= 0 || code.indexOf("QUOTA") >= 0) {
-    return "调用量超了当日配额，明天恢复，或换一个 Key";
-  }
-  return "";
-}
-
-/** Key 只露头尾，方便核对有没有贴错，又不至于整串暴露 */
-function maskKey(key) {
-  var text = String(key || "");
-  if (text.length <= 10) return text;
-  return text.slice(0, 4) + "…" + text.slice(-4) + "（" + text.length + " 位）";
-}
-
-/** 渲染失败提示：第一行说结论，后面几行给可核实的信息，不堆通用理由 */
-function showMapError(title, details) {
-  var html = '<div class="map-hint"><b>' + escapeHtml(title) + "</b>";
-  var lines = details || [];
-  for (var i = 0; i < lines.length; i++) {
-    if (!lines[i]) continue;
-    html +=
-      '<br><span style="font-size:11px;line-height:1.85;">' + escapeHtml(lines[i]) + "</span>";
-  }
-  html += "</div>";
-  dom.mapBox.style.padding = "";
-  dom.mapBox.innerHTML = html;
-}
-
-/** 摘掉高德脚本并清掉全局状态，换 Key 或补安全密钥后要能重来 */
-function resetAmap() {
-  if (amapScriptEl && amapScriptEl.parentNode) {
-    amapScriptEl.parentNode.removeChild(amapScriptEl);
-  }
-  amapScriptEl = null;
-  try {
-    delete window.AMap;
-  } catch (error) {
-    window.AMap = undefined;
-  }
-  try {
-    delete window._AMapSecurityConfig;
-  } catch (error) {
-    window._AMapSecurityConfig = undefined;
-  }
-}
-
-/**
- * 在地图容器里展示附近彩票店。
- * 失败一律降级成文字提示，不把错误抛给用户。
- */
-function initShopMap() {
-  var key = state.amapKey;
-  if (!key) {
-    dom.btnMapConfig.click();
-    showToast("先填一个高德 Key");
-    return;
-  }
-
-  if (state.mapInstance) {
-    state.mapInstance.destroy();
-    state.mapInstance = null;
-  }
-  dom.mapBox.style.padding = "";
-  dom.mapBox.innerHTML = '<div class="map-hint">正在加载地图…</div>';
-  dom.shopList.innerHTML = "";
-
-  loadAmapScript(key)
-    .then(function onScriptReady() {
-      return ensureAmapPlugins();
-    })
-    .then(function onReady() {
-      buildShopMap();
-    })
-    .catch(function onFail(error) {
-      showMapError("地图没能加载", [
-        error && error.message ? error.message : "未知原因",
-        "当前地址：" + window.location.origin,
-        "Key：" + maskKey(key) + (state.amapSecurity ? " · 安全密钥已填" : " · 安全密钥为空"),
-        "按这个顺序查：Key 类型是否为「Web 端（JS API）」→ 补安全密钥 → 域名白名单"
-      ]);
-      // 地图挂了不影响主流程，但要让用户知道可以改用跳转
-      showToast("地图加载失败，可用下方按钮跳转");
-    });
-}
-
-/** 地图与定位真正落地的一步，单独拆出来便于定位问题 */
-function buildShopMap() {
-  var map;
-  try {
-    dom.mapBox.innerHTML = "";
-    dom.mapBox.style.padding = "0";
-    map = new window.AMap.Map(dom.mapBox, {
-      zoom: 14,
-      resizeEnable: true,
-      center: MAP_FALLBACK_CENTER
-    });
-  } catch (error) {
-    showMapError("地图初始化失败", [
-      error && error.message ? error.message : "构造 AMap.Map 时抛了异常",
-      "控制台里若有 INVALID_USER_ 开头的错误码，就是 Key 授权问题"
-    ]);
-    return;
-  }
-  state.mapInstance = map;
-
-  var geolocation;
-  try {
-    geolocation = new window.AMap.Geolocation({
-      enableHighAccuracy: true,
-      timeout: 8000,
-      showButton: false
-    });
-    map.addControl(geolocation);
-  } catch (error) {
-    // 定位控件起不来不影响看图和搜索，按默认位置直接查
-    searchNearbyShops(map, MAP_FALLBACK_CENTER, false);
-    return;
-  }
-
-  geolocation.getCurrentPosition(function onPosition(status, result) {
-    var info = (result && result.info) || "";
-    var authIssue = amapErrorHint(info);
-    if (authIssue) {
-      showMapError("Key 授权没通过", [authIssue, "高德返回：" + info]);
-      return;
-    }
-
-    var located = status === "complete" && result && result.position ? true : false;
-    var center = located ? [result.position.lng, result.position.lat] : MAP_FALLBACK_CENTER;
-    map.setCenter(center);
-
-    if (!located) {
-      var reason =
-        window.location.protocol === "file:"
-          ? "本地文件直接打开，浏览器不给定位权限"
-          : info && info !== "SUCCESS" && info !== "ERROR_NOCELL&WIFI_LOCATIONSWITCHOPEN"
-            ? "定位失败（" + info + "）"
-            : "定位被拒绝或超时";
-      dom.shopList.innerHTML =
-        '<div class="empty">' + escapeHtml(reason) + "，先按默认位置查找</div>";
-    }
-
-    searchNearbyShops(map, center, located);
-  });
-}
-
-/**
- * 用高德 POI 搜索查附近彩票店并打点。
- * @param {object} map - AMap.Map 实例
- * @param {number[]} center - [lng, lat]
- * @param {boolean} located - 是否为真实定位结果
- */
-function searchNearbyShops(map, center, located) {
-  // 用关键词而非 POI 类型码搜索：高德各地分类编码不完全一致，关键词更稳
-  var placeSearch;
-  try {
-    placeSearch = new window.AMap.PlaceSearch({
-      pageSize: 15,
-      pageIndex: 1,
-      map: map
-    });
-  } catch (error) {
-    dom.shopList.innerHTML =
-      '<div class="empty">搜索组件没加载起来，可点下面的按钮直接去高德搜</div>';
-    return;
-  }
-
-  placeSearch.searchNearBy("彩票", center, 3000, function onResult(status, result) {
-    var info = (result && result.info) || status;
-    var authIssue = amapErrorHint(info);
-
-    if (authIssue) {
-      dom.mapBox.style.padding = "";
-      showMapError("地图出来了，但查不到店铺", [authIssue, "高德返回：" + info]);
-      dom.shopList.innerHTML = "";
-      return;
-    }
-
-    if (status !== "complete") {
-      dom.shopList.innerHTML =
-        '<div class="empty">搜索没成功（' + escapeHtml(String(info)) + "），可点下面按钮去高德搜</div>";
-      return;
-    }
-
-    if (!result.poiList || !result.poiList.pois.length) {
-      dom.shopList.innerHTML =
-        '<div class="empty">附近 3 公里内没搜到彩票店' +
-        (located ? "" : "（当前用默认位置，定位可能被拒绝）") +
-        "</div>";
-      return;
-    }
-
-    var pois = result.poiList.pois.slice(0, 10);
-    dom.shopList.innerHTML = pois
-      .map(function toItem(poi) {
-        var distance = poi.distance ? Math.round(poi.distance) + " m" : "";
-        return (
-          '<div class="shop-item">' +
-          '<span class="shop-name">' + escapeHtml(poi.name) + "</span>" +
-          '<span class="shop-dist">' + distance + "</span>" +
-          "</div>"
-        );
-      })
-      .join("");
-  });
-}
-
-/** 打开高德 URI 搜索，无需 Key，作为地图不可用时的兜底 */
-function openAmapSearch() {
-  var url = "https://uri.amap.com/search?keyword=" + encodeURIComponent("彩票店") + "&callnative=1";
-  window.open(url, "_blank");
-}
-
-/** 极简 HTML 转义，POI 名称来自第三方，必须转义后再插入 */
-function escapeHtml(text) {
-  return String(text)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/* ==================================================================
- * 十、事件绑定与启动
+ * 八、事件绑定与启动
  * ================================================================== */
 
 function bindEvents() {
@@ -3788,59 +3252,6 @@ function bindEvents() {
   });
 
   document.getElementById("btnCheckDraw").addEventListener("click", checkAgainstLastDraw);
-
-  // 地图
-  document.getElementById("btnOpenMap").addEventListener("click", openAmapSearch);
-
-  document.getElementById("btnMapConfig").addEventListener("click", function onToggle() {
-    dom.mapConfigBody.classList.toggle("fold-body--open");
-  });
-
-  document.getElementById("btnSaveKey").addEventListener("click", function onSaveKey() {
-    var value = dom.amapKeyInput.value.trim();
-    var security = dom.amapSecurityInput.value.trim();
-    if (!value) {
-      showToast("先粘贴 Key");
-      return;
-    }
-    var changed = value !== state.amapKey || security !== state.amapSecurity;
-    state.amapKey = value;
-    state.amapSecurity = security;
-    writeStorage(STORAGE_KEYS.amapKey, value);
-    writeStorage(STORAGE_KEYS.amapSecurity, security);
-    if (state.mapInstance) {
-      state.mapInstance.destroy();
-      state.mapInstance = null;
-    }
-    // 换 Key 或补安全密钥后必须重新加载脚本，否则旧配置会一直生效
-    if (changed) resetAmap();
-    showToast(security ? "已保存，正在加载地图" : "已保存，但安全密钥为空");
-    initShopMap();
-  });
-
-  document.getElementById("btnClearKey").addEventListener("click", function onClearKey() {
-    state.amapKey = "";
-    state.amapSecurity = "";
-    dom.amapKeyInput.value = "";
-    dom.amapSecurityInput.value = "";
-    writeStorage(STORAGE_KEYS.amapKey, "");
-    writeStorage(STORAGE_KEYS.amapSecurity, "");
-    if (state.mapInstance) {
-      state.mapInstance.destroy();
-      state.mapInstance = null;
-    }
-    resetAmap();
-    dom.mapBox.style.padding = "";
-    dom.mapBox.innerHTML =
-      '<div class="map-hint">未配置地图密钥<br><span style="font-size:11px;">填入高德 Key 后可显示附近店铺</span></div>';
-    dom.shopList.innerHTML = "";
-    showToast("已清除");
-  });
-
-  // 点地图区域也能触发配置提示
-  dom.mapBox.addEventListener("click", function onMapClick() {
-    if (!state.amapKey) dom.btnMapConfig.click();
-  });
 }
 
 /** 首次加载：读本地数据 → 算今日天象 → 渲染 */
@@ -3857,20 +3268,11 @@ function bootstrap() {
     sales: 0,
     pool: 0
   });
-  state.amapKey = readStorage(STORAGE_KEYS.amapKey, "");
-  state.amapSecurity = readStorage(STORAGE_KEYS.amapSecurity, "");
   state.confirmed = migrateConfirmed(readStorage(STORAGE_KEYS.confirmed, null));
   state.salt = Number(readStorage(STORAGE_KEYS.salt, 0)) || 0;
   /* 号源要在第一次算号之前定下来，否则会先按 0 算出一组再跳一次 */
   state.seedSource = resolveSeedSource();
   state.ticketCount = clampTicketCount(readStorage(STORAGE_KEYS.ticketCount, 1));
-
-  if (state.amapKey) {
-    dom.amapKeyInput.value = state.amapKey;
-  }
-  if (state.amapSecurity) {
-    dom.amapSecurityInput.value = state.amapSecurity;
-  }
 
   bindEvents();
   refreshAll();
@@ -3886,15 +3288,10 @@ function bootstrap() {
 
   /* 倒计时每 30 秒走一格；浏览器后台会自动降频，不必额外处理 */
   window.setInterval(renderCountdown, 30000);
-
-  // 已有 Key 时自动加载地图；失败会自行降级
-  if (state.amapKey) {
-    initShopMap();
-  }
 }
 
 /* 双保险：CSS 的 touch-action 已经关掉双击缩放，但老版 iOS 不认，
-   这里再吞一次双击默认行为。只拦 dblclick，不影响单击和地图拖动。 */
+   这里再吞一次双击默认行为。只拦 dblclick，不影响单击滚动。 */
 document.addEventListener(
   "dblclick",
   function onDoubleClick(event) {
