@@ -798,6 +798,14 @@
     border: 1px solid var(--line-soft);
   }
 
+  /* 中奖那条整条泛一点暖光，扫列表时一眼能挑出来 */
+  .saved-item--win {
+    border-color: rgba(216,184,115,.42);
+    background:
+      linear-gradient(180deg, rgba(216,184,115,.075), rgba(216,184,115,.015)),
+      var(--surface-2);
+  }
+
   .saved-top {
     display: flex;
     align-items: center;
@@ -847,6 +855,43 @@
     gap: 3px;
     flex-wrap: wrap;
     flex: 1;
+  }
+
+  /* 中奖金额：比徽标更抢眼，金色加粗 */
+  .saved-tags {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex: none;
+  }
+
+  .saved-prize {
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+    white-space: nowrap;
+  }
+
+  .saved-prize--float {
+    font-weight: 500;
+    font-size: 10px;
+    color: var(--gold-soft);
+  }
+
+  /* 命中的球：圈一道金边并微微提亮，没中的压暗，一眼看出中的是哪几个。
+     金边画在球内（inset），不会和相邻的球挤在一起 */
+  .ball--hit {
+    transform: scale(1.08);
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 233, 177, .95),
+      0 0 9px rgba(216, 184, 115, .6),
+      var(--shadow-ball);
+  }
+
+  .ball--miss {
+    opacity: .28;
   }
 
   .saved-del {
@@ -1056,78 +1101,7 @@
     -webkit-user-select: none;
     user-select: none;
     touch-action: manipulation;
-  }  /* ============================================================
-     奖金走势图
-     ============================================================ */
-
-  .chart-tabs {
-    display: flex;
-    gap: var(--sp-2);
-    margin-bottom: var(--sp-3);
   }
-
-  .chart-tab {
-    flex: 1;
-    padding: 7px 0;
-    font-size: var(--fs-xs);
-    font-family: inherit;
-    color: var(--ink-3);
-    background: var(--surface-2);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-sm);
-    cursor: pointer;
-    transition: color .15s, border-color .15s, background .15s;
-    touch-action: manipulation;
-  }
-
-  .chart-tab--on {
-    color: var(--gold);
-    border-color: var(--gold-dark);
-    background: var(--gold-glow);
-  }
-
-  .chart-box {
-    position: relative;
-    width: 100%;
-    height: 250px;
-    border-radius: var(--r-md);
-    background: var(--surface-2);
-    border: 1px solid var(--line-soft);
-    overflow: hidden;
-  }
-
-  .chart-hint {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 0 var(--sp-5);
-    text-align: center;
-    font-size: var(--fs-xs);
-    color: var(--ink-3);
-    line-height: 1.7;
-  }
-
-  /* ECharts 挂进来后自己撑满，不需要内边距 */
-  .chart-box canvas,
-  .chart-box svg {
-    display: block;
-  }
-
-  .chart-svg {
-    width: 100%;
-    height: 100%;
-  }
-
-  /* 降级图（纯 SVG，不依赖任何外部脚本）的说明行 */
-  .chart-svg-note {
-    position: absolute;
-    left: var(--sp-3);
-    bottom: 6px;
-    font-size: var(--fs-2xs);
-    color: var(--ink-3);
-  }
-
 </style>
 </head>
 <body>
@@ -1280,29 +1254,7 @@
     </div>
   </section>
 
-  <!-- ============ 奖金走势 ============ -->
-  <section class="card" id="chartCard">
-    <div class="card-head">
-      <div class="card-title">奖金走势</div>
-      <div class="card-note" id="chartMeta">—</div>
-    </div>
 
-    <div class="chart-tabs" id="chartTabs">
-      <button class="chart-tab chart-tab--on" type="button" data-range="30">近 30 期</button>
-      <button class="chart-tab" type="button" data-range="60">近 60 期</button>
-      <button class="chart-tab" type="button" data-range="100">近 100 期</button>
-    </div>
-
-    <div class="chart-box" id="chartBox">
-      <div class="chart-hint">图表加载中…</div>
-    </div>
-
-    <div class="card-note" id="chartFoot" style="line-height:1.7;margin-top:var(--sp-3)">
-      奖池决定一等奖的上限，单注奖金由当期注数均摊。一等奖空开时奖金为 0，折线在此处断开。
-    </div>
-  </section>
-
-  <!-- ============ 我的号码 ============ -->
   <section class="card">
     <div class="card-head">
       <div class="card-title">我的号码</div>
@@ -2048,10 +2000,7 @@ var state = {
   amapSecurity: "",
   mapInstance: null,
   /** 已确认的那组号：{ dateKey, salt, reds, blue, drawDate, result } */
-  confirmed: null,
-  /** 历史开奖（奖金走势用）：{ count, items: [{issue,date,pool,firstNum,firstMoney,...}] } */
-  history: null,
-  historyRange: 30
+  confirmed: null
 };
 
 function startOfToday() {
@@ -2100,8 +2049,7 @@ function cacheDom() {
     "drawStatus", "drawNote", "drawIssue", "drawDate", "drawStats",
     "lastDrawBalls",
     "mapConfigBody", "btnMapConfig", "amapKeyInput", "amapSecurityInput", "toast", "btnPrevDay", "btnNextDay",
-    "skyCard", "numsCountdown", "btnCopy", "btnRules", "rulesBody",
-    "chartCard", "chartTabs", "chartBox", "chartMeta", "chartFoot"
+    "skyCard", "numsCountdown", "btnCopy", "btnRules", "rulesBody"
   ];
   ids.forEach(function bindId(id) {
     dom[id] = document.getElementById(id);
@@ -2163,9 +2111,15 @@ function renderSky() {
   }).join("");
 }
 
-/** 渲染单个号码球 */
-function ballHtml(number, type, small) {
-  var cls = "ball ball--" + type + (small ? " ball--sm" : "");
+/**
+ * 渲染单个号码球。
+ * @param {number|string} number - 球号
+ * @param {string} type - "red" / "blue"
+ * @param {boolean} small - 小号球（列表里用）
+ * @param {string} [mark] - "hit" 描金圈 / "miss" 压暗，只在判奖后传
+ */
+function ballHtml(number, type, small, mark) {
+  var cls = "ball ball--" + type + (small ? " ball--sm" : "") + (mark ? " ball--" + mark : "");
   var text = String(number);
   if (number < 10) text = "0" + number;
   return '<span class="' + cls + '">' + text + "</span>";
@@ -2254,22 +2208,54 @@ function changeTicketCount(delta) {
 
 /** 渲染已保存号码 */
 /**
+ * 逐球标出哪几个撞上了开奖号。
+ * 拿不到完整开奖号就返回 null——宁可不高亮，也别把没中的球标成中了。
+ */
+function savedHits(item, drawReds, drawBlue) {
+  if (!drawReds || drawReds.length !== SSQ_RULES.redCount) return null;
+  if (drawReds.some(function isBad(n) { return isNaN(n); })) return null;
+
+  var reds = (item.reds || []).map(function toNumber(n) { return parseInt(n, 10); });
+
+  return {
+    reds: reds.map(function isHit(n) { return drawReds.indexOf(n) !== -1; }),
+    blue: !isNaN(drawBlue) && parseInt(item.blue, 10) === drawBlue
+  };
+}
+
+/**
  * 判断一组收藏号的结果。
  * 只存了最近一期开奖，所以能判的只有当它正好等到这一期；
  * 更早的期次标「已开奖」，不假装知道结果。
+ * 中奖的会带上金额与命中球位，用来显示「5 元」和高亮。
  */
 function savedOutcome(item) {
+  var draw = state.lastDraw || {};
+
   if (item.result) {
-    return item.result.prizeName
-      ? { tone: "win", text: item.result.prizeName }
-      : { tone: "lose", text: "未中奖" };
+    var r = item.result;
+    /* 判奖时把开奖号一起存了，翻期之后也能指出中的是哪几个 */
+    var rReds = Array.isArray(r.drawReds) && r.drawReds.length === SSQ_RULES.redCount
+      ? r.drawReds
+      : (draw.date && draw.date === item.drawDate
+        ? (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); })
+        : null);
+    var rBlue = typeof r.drawBlue === "number"
+      ? r.drawBlue
+      : (draw.date && draw.date === item.drawDate ? parseInt(draw.blue, 10) : NaN);
+
+    return {
+      tone: r.prizeName ? "win" : "lose",
+      text: r.prizeName || "未中奖",
+      amount: Number(r.prizeAmount) || 0,
+      hits: savedHits(item, rReds, rBlue)
+    };
   }
 
-  var draw = state.lastDraw || {};
   var target = item.drawDate || "";
 
-  if (!target) return { tone: "pending", text: "待确认" };
-  if (!draw.date) return { tone: "pending", text: "待开奖" };
+  if (!target) return { tone: "pending", text: "待确认", amount: 0, hits: null };
+  if (!draw.date) return { tone: "pending", text: "待开奖", amount: 0, hits: null };
 
   if (draw.date === target) {
     var drawReds = (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); });
@@ -2277,17 +2263,31 @@ function savedOutcome(item) {
     var usable = drawReds.length === SSQ_RULES.redCount &&
       drawReds.every(function inRange(n) { return !isNaN(n); }) &&
       !isNaN(drawBlue);
-    if (!usable) return { tone: "pending", text: "待公布" };
+    if (!usable) return { tone: "pending", text: "待公布", amount: 0, hits: null };
 
     var pickReds = (item.reds || []).map(function toNumber(n) { return parseInt(n, 10); });
     var prize = evaluatePrize(pickReds, parseInt(item.blue, 10), drawReds, drawBlue);
-    return prize.prizeName
-      ? { tone: "win", text: prize.prizeName }
-      : { tone: "lose", text: "未中奖" };
+    return {
+      tone: prize.prizeName ? "win" : "lose",
+      text: prize.prizeName || "未中奖",
+      amount: prize.prizeAmount,
+      hits: savedHits(item, drawReds, drawBlue)
+    };
   }
 
-  if (String(draw.date) > target) return { tone: "muted", text: "已开奖" };
-  return { tone: "pending", text: "待开奖" };
+  if (String(draw.date) > target) return { tone: "muted", text: "已开奖", amount: 0, hits: null };
+  return { tone: "pending", text: "待开奖", amount: 0, hits: null };
+}
+
+/** 中奖金额小签：固定奖写「5 元」，一二等奖是浮动的，别编数字 */
+function prizeTagHtml(outcome) {
+  if (outcome.amount === -1) {
+    return '<span class="saved-prize saved-prize--float">奖金浮动</span>';
+  }
+  if (outcome.amount > 0) {
+    return '<span class="saved-prize">' + outcome.amount + " 元</span>";
+  }
+  return "";
 }
 
 function renderSaved() {
@@ -2301,8 +2301,16 @@ function renderSaved() {
   }
 
   dom.savedList.innerHTML = list.map(function toItem(item, index) {
-    var balls = (item.reds || []).map(function toRed(n) { return ballHtml(n, "red", true); }).join("") +
-      ballHtml(item.blue, "blue", true);
+    var outcome = savedOutcome(item);
+    var won = outcome.tone === "win";
+    /* 只有中了才标球位：没中的整排压暗没有意义，反而看不清自己买的是什么 */
+    var hits = won ? outcome.hits : null;
+
+    var balls = (item.reds || []).map(function toRed(n, i) {
+      var mark = hits ? (hits.reds[i] ? "hit" : "miss") : "";
+      return ballHtml(n, "red", true, mark);
+    }).join("") +
+      ballHtml(item.blue, "blue", true, hits ? (hits.blue ? "hit" : "miss") : "");
 
     var when = item.dateLabel + " 确认";
     if (item.issue) {
@@ -2311,13 +2319,14 @@ function renderSaved() {
       when += " · 等 " + String(item.drawDate).slice(5).replace("-", "/") + " 开奖";
     }
 
-    var outcome = savedOutcome(item);
-
     return (
-      '<div class="saved-item">' +
+      '<div class="saved-item' + (won ? " saved-item--win" : "") + '">' +
       '<div class="saved-top">' +
       '<span class="saved-when">' + when + "</span>" +
+      '<span class="saved-tags">' +
       '<span class="saved-chip saved-chip--' + outcome.tone + '">' + outcome.text + "</span>" +
+      prizeTagHtml(outcome) +
+      "</span>" +
       "</div>" +
       '<div class="saved-row">' +
       '<div class="saved-balls">' + balls + "</div>" +
@@ -2805,7 +2814,11 @@ function evaluateConfirm() {
       hitReds: prize.hitReds,
       hitBlue: prize.hitBlue,
       prizeName: prize.prizeName,
-      prizeAmount: prize.prizeAmount
+      prizeAmount: prize.prizeAmount,
+      /* 把开奖号一起存下来：「我的号码」里要指出中的是哪几个球，
+         而 state.lastDraw 只留最新一期，下一期开出来就查不到这一期了 */
+      drawReds: drawReds.slice(),
+      drawBlue: drawBlue
     };
   });
 
@@ -2856,7 +2869,10 @@ function backfillSavedIssue(c) {
         prizeName: ticket.result.prizeName,
         prizeAmount: ticket.result.prizeAmount,
         hitReds: ticket.result.hitReds,
-        hitBlue: ticket.result.hitBlue
+        hitBlue: ticket.result.hitBlue,
+        /* 开奖号跟着结果走，事后回看仍能标出中的是哪几个球 */
+        drawReds: ticket.result.drawReds ? ticket.result.drawReds.slice() : null,
+        drawBlue: ticket.result.drawBlue
       };
       touched = true;
     });
@@ -3385,480 +3401,7 @@ function startDrawSyncLoop() {
 }
 
 /* ==================================================================
- * 八、奖金走势图
- *
- * 数据来自 /api/history（本地服务）或 history.json（Pages），近 100 期。
- * 图用 ECharts，但**懒加载**：卡片滚进视口才去下载那 1 MB 脚本，
- * 不拖慢首屏。
- * ECharts 拿不到时（断网、CDN 被墙、file:// 离线）退回手写 SVG 折线，
- * 图照样能看，只是没有 tooltip。
- * ================================================================== */
-
-/* ECharts 来源，按实测速度排序（这台机器上的实测值）。
-   版本固定 5.4.3：5.5.1 在 staticfile / bootcdn / baomitu 上都还没同步，全是 404。
-   每个源都实测过返回的是真 ECharts（约 1 MB，带 Apache 许可头），
-   不是 14 字节的 "Not Found" —— 那种最坑，HTTP 200 但内容不对。 */
-var ECHARTS_SOURCES = [
-  "https://registry.npmmirror.com/echarts/5.4.3/files/dist/echarts.min.js",
-  "https://cdn.staticfile.org/echarts/5.4.3/echarts.min.js",
-  "https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js",
-  "https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"
-];
-
-/* 图表配色。写死而不是读 CSS 变量：ECharts 不吃 var() */
-var CHART_COLORS = {
-  pool: "#D8B873",       /* 奖池：金 */
-  first: "#79A6DE",      /* 一等奖单注：蓝 */
-  line: "#2A303B",
-  ink3: "#6E7787",
-  ink: "#EEF0F3",
-  surface: "#1E232C"
-};
-
-var echartsState = { started: false, ready: false, failed: false, waiters: [] };
-var chartInstance = null;
-
-/* 历史数据 30 分钟刷一次就够：一期只变一次 */
-var HISTORY_TTL_MS = 30 * 60 * 1000;
-var historyFetchedAt = 0;
-
-/** 历史数据源：同源优先；file:// 打开时直接找本机服务 */
-function historyApiCandidates() {
-  var list = [];
-  var protocol = window.location.protocol;
-  var isLocalFile = protocol === "file:";
-
-  if (!isLocalFile) {
-    list.push("/api/history");
-    list.push("history.json?t=" + Date.now());
-  }
-  if (isLocalFile || protocol === "http:") {
-    list.push("http://127.0.0.1:5173/api/history");
-    list.push("http://localhost:5173/api/history");
-  }
-  return list;
-}
-
-/** 依次尝试数据源，第一个能解析出 items 的就用 */
-function fetchHistory() {
-  var targets = historyApiCandidates();
-
-  function attemptAt(index) {
-    if (index >= targets.length) {
-      return Promise.reject(new Error("取不到历史数据"));
-    }
-    return requestDraw(targets[index])
-      .then(function check(payload) {
-        /* /api/history 包了一层 data，history.json 则是平铺，两种都认 */
-        var body = payload && payload.data ? payload.data : payload;
-        if (!body || !body.items || !body.items.length) {
-          throw new Error("历史数据为空");
-        }
-        return body;
-      })
-      .catch(function next() {
-        return attemptAt(index + 1);
-      });
-  }
-
-  return attemptAt(0);
-}
-
-/** 加载 ECharts，多次调用只下载一次；全部源都失败才 reject */
-function loadEcharts() {
-  if (echartsState.ready) return Promise.resolve();
-  if (echartsState.failed) return Promise.reject(new Error("ECharts 不可用"));
-
-  return new Promise(function executor(resolve, reject) {
-    echartsState.waiters.push({ resolve: resolve, reject: reject });
-    if (echartsState.started) return;
-    echartsState.started = true;
-
-    function settle(ok) {
-      echartsState.ready = ok;
-      echartsState.failed = !ok;
-      var waiters = echartsState.waiters;
-      echartsState.waiters = [];
-      waiters.forEach(function each(waiter) {
-        if (ok) waiter.resolve();
-        else waiter.reject(new Error("ECharts 不可用"));
-      });
-    }
-
-    var index = 0;
-
-    function attempt() {
-      if (index >= ECHARTS_SOURCES.length) {
-        settle(false);
-        return;
-      }
-
-      var url = ECHARTS_SOURCES[index];
-      index += 1;
-
-      var script = document.createElement("script");
-      script.src = url;
-      script.async = true;
-
-      var done = false;
-      /* script.onerror 不一定触发（有些 CDN 挂掉时是长连接不返回），自己掐表 */
-      var timer = window.setTimeout(function onTimeout() {
-        if (done) return;
-        done = true;
-        attempt();
-      }, 7000);
-
-      script.onload = function onLoad() {
-        if (done) return;
-        done = true;
-        window.clearTimeout(timer);
-        if (window.echarts && window.echarts.init) settle(true);
-        else attempt();
-      };
-
-      script.onerror = function onError() {
-        if (done) return;
-        done = true;
-        window.clearTimeout(timer);
-        attempt();
-      };
-
-      document.head.appendChild(script);
-    }
-
-    attempt();
-  });
-}
-
-/** 取当前要画的区间（最近 N 期） */
-function chartSlice() {
-  var items = (state.history && state.history.items) || [];
-  var range = state.historyRange || 30;
-  return items.slice(Math.max(0, items.length - range));
-}
-
-/** 顶部右侧的小字：多少期、到哪一期 */
-function renderChartMeta(items) {
-  if (!dom.chartMeta) return;
-  var last = items[items.length - 1];
-  dom.chartMeta.textContent = items.length + " 期 · 至第 " + last.issue + " 期";
-}
-
-/** 主入口：有 ECharts 用 ECharts，没有就走 SVG */
-function renderPrizeChart() {
-  if (!dom.chartBox) return;
-
-  var items = chartSlice();
-  if (!items.length) {
-    dom.chartBox.innerHTML =
-      '<div class="chart-hint">暂无历史数据<br>' +
-      '<span style="font-size:10px;">联网或启动 start.bat 后刷新</span></div>';
-    return;
-  }
-
-  renderChartMeta(items);
-
-  loadEcharts()
-    .then(function onReady() {
-      drawEcharts(items);
-    })
-    .catch(function onFail() {
-      drawFallbackChart(items);
-    });
-}
-
-/** 用 ECharts 画：奖池走左轴（亿），一等奖单注走右轴（万） */
-function drawEcharts(items) {
-  if (!window.echarts || !window.echarts.init) {
-    drawFallbackChart(items);
-    return;
-  }
-
-  var labels = [];
-  var poolData = [];
-  var firstData = [];
-  var blankCount = 0;
-
-  items.forEach(function each(row) {
-    labels.push(String(row.date || "").slice(5).replace("-", "/"));
-    poolData.push(Math.round(row.pool / 1e7) / 10);
-
-    if (Number(row.firstMoney) > 0) {
-      firstData.push(Math.round(row.firstMoney / 1e4) / 10);
-    } else {
-      /* 一等奖空开：真的是 0，但画成 0 看着像奖金腰斩。
-         断开更诚实，具体几期放在图注里说 */
-      firstData.push(null);
-      blankCount += 1;
-    }
-  });
-
-  if (!chartInstance) {
-    dom.chartBox.innerHTML = "";
-    chartInstance = window.echarts.init(dom.chartBox, null, { renderer: "canvas" });
-  }
-
-  var option = {
-    backgroundColor: "transparent",
-    animationDuration: 420,
-    grid: { left: 42, right: 44, top: 26, bottom: 24 },
-    tooltip: {
-      trigger: "axis",
-      backgroundColor: "rgba(23,27,34,.96)",
-      borderColor: CHART_COLORS.line,
-      borderWidth: 1,
-      padding: [8, 10],
-      textStyle: { color: CHART_COLORS.ink, fontSize: 11.5 },
-      axisPointer: { type: "line", lineStyle: { color: "#3A424F" } },
-      formatter: chartTooltip
-    },
-    xAxis: {
-      type: "category",
-      data: labels,
-      boundaryGap: false,
-      axisLine: { lineStyle: { color: CHART_COLORS.line } },
-      axisTick: { show: false },
-      axisLabel: {
-        color: CHART_COLORS.ink3,
-        fontSize: 9.5,
-        hideOverlap: true,
-        margin: 8
-      },
-      splitLine: { show: false }
-    },
-    yAxis: [
-      {
-        type: "value",
-        name: "亿",
-        nameTextStyle: { color: CHART_COLORS.pool, fontSize: 9, padding: [0, 0, 0, -14] },
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: CHART_COLORS.pool, fontSize: 9.5 },
-        splitLine: { lineStyle: { color: "rgba(42,48,59,.55)", type: "dashed" } }
-      },
-      {
-        type: "value",
-        name: "万",
-        nameTextStyle: { color: CHART_COLORS.first, fontSize: 9, padding: [0, -14, 0, 0] },
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: CHART_COLORS.first, fontSize: 9.5 },
-        splitLine: { show: false }
-      }
-    ],
-    series: [
-      {
-        name: "奖池",
-        type: "line",
-        yAxisIndex: 0,
-        data: poolData,
-        /* 不平滑：样条插值会画出数据里没有的峰谷，奖金数字不能这么好看 */
-        smooth: false,
-        symbol: "none",
-        lineStyle: { width: 2, color: CHART_COLORS.pool },
-        areaStyle: {
-          color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: "rgba(216,184,115,.28)" },
-            { offset: 1, color: "rgba(216,184,115,0)" }
-          ])
-        }
-      },
-      {
-        name: "一等奖单注",
-        type: "line",
-        yAxisIndex: 1,
-        data: firstData,
-        connectNulls: false,
-        smooth: false,
-        symbol: "circle",
-        symbolSize: 3,
-        showSymbol: items.length <= 40,
-        lineStyle: { width: 1.6, color: CHART_COLORS.first },
-        itemStyle: { color: CHART_COLORS.first }
-      }
-    ]
-  };
-
-  chartInstance.setOption(option, true);
-
-  if (dom.chartFoot) {
-    dom.chartFoot.innerHTML =
-      '奖池（<span style="color:' + CHART_COLORS.pool + '">金</span>，左轴·亿元）决定一等奖的上限；' +
-      '一等奖单注（<span style="color:' + CHART_COLORS.first + '">蓝</span>，右轴·万元）由当期注数均摊。' +
-      (blankCount
-        ? '本区间有 <b>' + blankCount + ' 期一等奖空开</b>，折线在该处断开。'
-        : '');
-  }
-}
-
-/** tooltip：把该期奖池、销量、一二等奖注数与金额一次说清 */
-function chartTooltip(params) {
-  if (!params || !params.length) return "";
-
-  var index = params[0].dataIndex;
-  var items = chartSlice();
-  var row = items[index];
-  if (!row) return "";
-
-  function yi(value) { return (value / 1e8).toFixed(2) + " 亿"; }
-  function wan(value) {
-    if (!value) return "—";
-    return (value / 1e4).toFixed(1) + " 万";
-  }
-
-  var lines = [];
-  lines.push(
-    '<div style="font-size:10.5px;color:#6E7787;margin-bottom:4px;">' +
-    "第 " + row.issue + " 期 · " + row.date + "</div>"
-  );
-  lines.push(
-    '<div><span style="color:' + CHART_COLORS.pool + '">●</span> 奖池 ' +
-    yi(row.pool) + "</div>"
-  );
-  lines.push("<div>销量 " + yi(row.sales) + "</div>");
-  lines.push(
-    "<div>一等奖 " +
-    (row.firstNum ? row.firstNum + " 注 × " + wan(row.firstMoney) : "空开") +
-    "</div>"
-  );
-  lines.push(
-    "<div>二等奖 " + row.secondNum + " 注 × " + wan(row.secondMoney) + "</div>"
-  );
-  return lines.join("");
-}
-
-/** ECharts 不可用时的退路：手写 SVG 双折线，不依赖任何外部脚本 */
-function drawFallbackChart(items) {
-  var W = 340;
-  var H = 240;
-  var padL = 30;
-  var padR = 32;
-  var padT = 14;
-  var padB = 20;
-  var iw = W - padL - padR;
-  var ih = H - padT - padB;
-
-  var pools = items.map(function (r) { return Number(r.pool) || 0; });
-  var firsts = items.map(function (r) { return Number(r.firstMoney) || 0; });
-  var maxPool = Math.max.apply(null, pools) || 1;
-  var maxFirst = Math.max.apply(null, firsts) || 1;
-
-  function xAt(index) {
-    if (items.length === 1) return padL + iw / 2;
-    return padL + (iw * index) / (items.length - 1);
-  }
-
-  /** 折线路径；value<=0 视为断点（一等奖空开） */
-  function pathOf(values, max) {
-    var d = "";
-    var open = false;
-    for (var i = 0; i < values.length; i++) {
-      if (values[i] <= 0) { open = false; continue; }
-      var x = xAt(i).toFixed(1);
-      var y = (padT + ih - (ih * values[i]) / max).toFixed(1);
-      d += (open ? "L" : "M") + x + " " + y + " ";
-      open = true;
-    }
-    return d.trim();
-  }
-
-  var gridLines = "";
-  for (var g = 0; g <= 3; g++) {
-    var gy = padT + (ih * g) / 3;
-    gridLines +=
-      '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy +
-      '" stroke="rgba(42,48,59,.55)" stroke-width="1" stroke-dasharray="3 4"/>';
-  }
-
-  var firstLabel = String(items[0].date || "").slice(5).replace("-", "/");
-  var lastRow = items[items.length - 1];
-  var lastLabel = String(lastRow.date || "").slice(5).replace("-", "/");
-
-  dom.chartBox.innerHTML =
-    '<svg class="chart-svg" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none">' +
-    gridLines +
-    '<path d="' + pathOf(pools, maxPool) + '" fill="none" stroke="' + CHART_COLORS.pool +
-    '" stroke-width="2" vector-effect="non-scaling-stroke"/>' +
-    '<path d="' + pathOf(firsts, maxFirst) + '" fill="none" stroke="' + CHART_COLORS.first +
-    '" stroke-width="1.6" vector-effect="non-scaling-stroke"/>' +
-    '<text x="' + padL + '" y="' + (H - 6) + '" fill="' + CHART_COLORS.ink3 +
-    '" font-size="9">' + firstLabel + "</text>" +
-    '<text x="' + (W - padR) + '" y="' + (H - 6) + '" fill="' + CHART_COLORS.ink3 +
-    '" font-size="9" text-anchor="end">' + lastLabel + "</text>" +
-    '<text x="' + padL + '" y="' + (padT - 4) + '" fill="' + CHART_COLORS.pool +
-    '" font-size="9">奖池 ' + (maxPool / 1e8).toFixed(1) + " 亿</text>" +
-    "</svg>";
-
-  if (dom.chartFoot) {
-    dom.chartFoot.innerHTML =
-      "当前网络取不到图表库，已用简版折线：<span style=\"color:" + CHART_COLORS.pool +
-      "\">金线</span>为奖池，<span style=\"color:" + CHART_COLORS.first +
-      "\">蓝线</span>为一等奖单注。连上网后自动换成完整图表。";
-  }
-}
-
-/** 切区间：只重画，不重新下载数据 */
-function bindChartEvents() {
-  if (!dom.chartTabs) return;
-
-  dom.chartTabs.addEventListener("click", function onRange(event) {
-    var target = event.target.closest("[data-range]");
-    if (!target) return;
-
-    var range = Number(target.getAttribute("data-range"));
-    if (!range || range === state.historyRange) return;
-
-    state.historyRange = range;
-
-    var tabs = dom.chartTabs.querySelectorAll(".chart-tab");
-    for (var i = 0; i < tabs.length; i++) {
-      tabs[i].classList.toggle("chart-tab--on", tabs[i] === target);
-    }
-    renderPrizeChart();
-  });
-}
-
-/** 卡片滚进视口才去取数据、下脚本 */
-function setupChartLazyLoad() {
-  if (!dom.chartCard) return;
-
-  function start() {
-    fetchHistory()
-      .then(function onData(body) {
-        state.history = body;
-        historyFetchedAt = Date.now();
-        renderPrizeChart();
-      })
-      .catch(function onFail() {
-        if (dom.chartBox) {
-          dom.chartBox.innerHTML =
-            '<div class="chart-hint">取不到历史数据<br>' +
-            '<span style="font-size:10px;">联网或启动 start.bat 后刷新本页</span></div>';
-        }
-        if (dom.chartMeta) dom.chartMeta.textContent = "离线";
-      });
-  }
-
-  if (!window.IntersectionObserver) {
-    start();
-    return;
-  }
-
-  var observer = new window.IntersectionObserver(function onChange(entries) {
-    for (var i = 0; i < entries.length; i++) {
-      if (entries[i].isIntersecting) {
-        observer.disconnect();
-        start();
-        return;
-      }
-    }
-  }, { rootMargin: "320px 0px" });
-
-  observer.observe(dom.chartCard);
-}
-
-/* ==================================================================
- * 九、地图（高德 JS API，按需加载）
+ * 八、地图（高德 JS API，按需加载）
  * ================================================================== */
 
 /** 已插入的高德脚本，换 Key 时要能摘掉重来 */
@@ -4298,13 +3841,6 @@ function bindEvents() {
   dom.mapBox.addEventListener("click", function onMapClick() {
     if (!state.amapKey) dom.btnMapConfig.click();
   });
-
-  bindChartEvents();
-
-  /* 横竖屏切换、窗口拉伸后图表不会自己跟着变，得手动叫它重排 */
-  window.addEventListener("resize", function onResize() {
-    if (chartInstance && chartInstance.resize) chartInstance.resize();
-  });
 }
 
 /** 首次加载：读本地数据 → 算今日天象 → 渲染 */
@@ -4350,9 +3886,6 @@ function bootstrap() {
 
   /* 倒计时每 30 秒走一格；浏览器后台会自动降频，不必额外处理 */
   window.setInterval(renderCountdown, 30000);
-
-  /* 奖金走势：滚到卡片附近才取历史、下图表库，不占首屏时间 */
-  setupChartLazyLoad();
 
   // 已有 Key 时自动加载地图；失败会自行降级
   if (state.amapKey) {
