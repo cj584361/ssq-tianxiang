@@ -1,22 +1,22 @@
 {
   "ok": true,
   "cached": false,
-  "updatedAt": "2026-11-12T14:00:23.552Z",
+  "updatedAt": "2026-11-15T14:00:14.563Z",
   "data": {
-    "issue": "2026130",
-    "date": "2026-11-12",
-    "week": "四",
+    "issue": "2026131",
+    "date": "2026-11-15",
+    "week": "日",
     "reds": [
       1,
-      2,
-      6,
-      16,
-      20,
-      28
+      10,
+      19,
+      26,
+      31,
+      33
     ],
-    "blue": 2,
+    "blue": 15,
     "sales": 0,
     "pool": 0,
-    "detail": "https://www.cwl.gov.cn/c/2026/11/12/673142.shtml"
+    "detail": "https://www.cwl.gov.cn/c/2026/11/15/673261.shtml"
   }
 }
