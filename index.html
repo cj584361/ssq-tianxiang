@@ -796,12 +796,18 @@
   }
 
   /* 命中的球：圈一道金边并微微提亮，没中的压暗，一眼看出中的是哪几个。
-     金边画在球内（inset），不会和相邻的球挤在一起 */
+     金边画在球内（inset），不会和相邻的球挤在一起；外面再套一圈描边，
+     27px 的小球上也看得清 */
   .ball--hit {
-    transform: scale(1.08);
+    transform: scale(1.12);
+    font-weight: 800;
+    position: relative;
+    z-index: 1;
+    filter: brightness(1.06) saturate(1.06);
     box-shadow:
-      inset 0 0 0 2px rgba(255, 233, 177, .95),
-      0 0 9px rgba(216, 184, 115, .6),
+      inset 0 0 0 2px rgba(255, 240, 200, .98),
+      0 0 0 2px rgba(216, 184, 115, .8),
+      0 0 12px rgba(216, 184, 115, .55),
       var(--shadow-ball);
   }
 
@@ -1786,7 +1792,13 @@ var state = {
     pool: 0
   },
   /** 已确认的那批号：{ dateKey, drawDate, tickets: [{ salt, reds, blue, result }] } */
-  confirmed: null
+  confirmed: null,
+  /**
+   * 开奖号归档：期号 → { reds, blue, date }，来自 history.json 的近 100 期。
+   * 只给「我的号码」里没存开奖号的旧记录补中奖高亮，不参与取号。
+   * null = 还没加载，{} = 加载过但没内容
+   */
+  drawArchive: null
 };
 
 function startOfToday() {
@@ -1984,45 +1996,166 @@ function changeTicketCount(delta) {
 /**
  * 逐球标出哪几个撞上了开奖号。
  * 拿不到完整开奖号就返回 null——宁可不高亮，也别把没中的球标成中了。
+ * 两边都先转成数字再比：老数据里存过 "03" 这类字符串，
+ * 直接 indexOf(3) 比不到，会把中了的球全判成没中。
  */
 function savedHits(item, drawReds, drawBlue) {
   if (!drawReds || drawReds.length !== SSQ_RULES.redCount) return null;
-  if (drawReds.some(function isBad(n) { return isNaN(n); })) return null;
 
+  var drawNums = drawReds.map(function toNumber(n) { return parseInt(n, 10); });
+  if (drawNums.some(function isBad(n) { return isNaN(n); })) return null;
+
+  var drawBlueNum = parseInt(drawBlue, 10);
   var reds = (item.reds || []).map(function toNumber(n) { return parseInt(n, 10); });
 
   return {
-    reds: reds.map(function isHit(n) { return drawReds.indexOf(n) !== -1; }),
-    blue: !isNaN(drawBlue) && parseInt(item.blue, 10) === drawBlue
+    reds: reds.map(function isHit(n) { return drawNums.indexOf(n) !== -1; }),
+    blue: !isNaN(drawBlueNum) && parseInt(item.blue, 10) === drawBlueNum
   };
 }
 
 /**
+ * 手上这一期开奖，是不是这条记录等的那一期。
+ * 期号优先：日期可能被清洗成不同写法（"2026-11-17" / "11/17"），
+ * 而期号是唯一的，能对上就一定是对上了。
+ */
+function drawSameAsItem(draw, item) {
+  if (!draw || !draw.date) return false;
+  if (item.issue && draw.issue && String(item.issue) === String(draw.issue)) return true;
+  return String(draw.date) === String(item.drawDate || "");
+}
+
+/**
+ * 从开奖归档里找这条记录等的那一期。
+ * 归档是 history.json 里的近 100 期（期号 + 号码），只在
+ * 「记录里没存开奖号」时才查，用来补中奖高亮。
+ * 没网、没归档就返回 null，球位不标，不编。
+ */
+function archivedDraw(item) {
+  var arch = state.drawArchive;
+  if (!arch) return null;
+  if (item.issue && arch[item.issue]) return arch[item.issue];
+
+  var want = String(item.drawDate || "");
+  if (!want) return null;
+  for (var key in arch) {
+    if (arch[key] && String(arch[key].date) === want) return arch[key];
+  }
+  return null;
+}
+
+/**
+ * 拿一期的开奖号给这条记录判奖，号码不完整就返回 null。
+ * @param {object} item - 收藏记录
+ * @param {object} drawLike - { reds: number[], blue: number }
+ */
+function judgeByDraw(item, drawLike) {
+  var reds = (drawLike.reds || []).map(function toNumber(n) { return parseInt(n, 10); });
+  var blue = parseInt(drawLike.blue, 10);
+  var usable = reds.length === SSQ_RULES.redCount &&
+    reds.every(function inRange(n) { return !isNaN(n); }) &&
+    !isNaN(blue);
+  if (!usable) return null;
+
+  var pick = (item.reds || []).map(function toNumber(n) { return parseInt(n, 10); });
+  var prize = evaluatePrize(pick, parseInt(item.blue, 10), reds, blue);
+  return {
+    tone: prize.prizeName ? "win" : "lose",
+    text: prize.prizeName || "未中奖",
+    amount: prize.prizeAmount,
+    hits: savedHits(item, reds, blue)
+  };
+}
+
+/**
+ * 把刚拿到的一期开奖记进归档，归档还没到手就不动
+ * @param {object} draw - state.lastDraw 的形状
+ */
+function rememberDrawInArchive(draw) {
+  if (!state.drawArchive || !draw || !draw.issue) return;
+  var reds = (draw.reds || []).map(function toNumber(n) { return parseInt(n, 10); });
+  if (reds.length !== SSQ_RULES.redCount || reds.some(function isBad(n) { return isNaN(n); })) return;
+  state.drawArchive[String(draw.issue)] = {
+    reds: reds,
+    blue: parseInt(draw.blue, 10),
+    date: draw.date
+  };
+}
+
+/**
+ * 拉一次 history.json，把近 100 期的开奖号装进归档。
+ * 失败就静默降级：老记录不标高亮，其余功能不受影响。
+ */
+function loadDrawArchive() {
+  if (state.drawArchive) return;
+  state.drawArchive = {};
+  if (typeof fetch !== "function") return;
+
+  fetch("history.json", { cache: "no-cache" })
+    .then(function onResponse(res) {
+      return res && res.ok ? res.json() : null;
+    })
+    .then(function onData(data) {
+      var items = (data && data.items) || [];
+      var added = 0;
+      for (var i = 0; i < items.length; i++) {
+        var row = items[i];
+        if (!row || !row.issue || !Array.isArray(row.reds)) continue;
+        if (row.reds.length !== SSQ_RULES.redCount) continue;
+        state.drawArchive[String(row.issue)] = {
+          reds: row.reds,
+          blue: Number(row.blue),
+          date: row.date
+        };
+        added++;
+      }
+      /* 归档补齐后重渲染一次，「我的号码」里的旧记录这时才亮起来 */
+      if (added) renderSaved();
+    })
+    .catch(function onFail() {
+      /* 离线打开、file:// 都会走到这里，属于预期 */
+    });
+}
+
+/**
  * 判断一组收藏号的结果。
- * 只存了最近一期开奖，所以能判的只有当它正好等到这一期；
- * 更早的期次标「已开奖」，不假装知道结果。
+ * 优先用记录里存的开奖号；没存的依次用「手上这期」「开奖归档」补，
+ * 都补不上才标「已开奖」，不假装知道结果。
  * 中奖的会带上金额与命中球位，用来显示「5 元」和高亮。
  */
 function savedOutcome(item) {
   var draw = state.lastDraw || {};
+  var sameDraw = drawSameAsItem(draw, item);
 
   if (item.result) {
     var r = item.result;
     /* 判奖时把开奖号一起存了，翻期之后也能指出中的是哪几个 */
     var rReds = Array.isArray(r.drawReds) && r.drawReds.length === SSQ_RULES.redCount
       ? r.drawReds
-      : (draw.date && draw.date === item.drawDate
-        ? (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); })
-        : null);
-    var rBlue = typeof r.drawBlue === "number"
+      : (sameDraw ? draw.reds : null);
+    var rBlue = r.drawBlue === 0 || r.drawBlue
       ? r.drawBlue
-      : (draw.date && draw.date === item.drawDate ? parseInt(draw.blue, 10) : NaN);
+      : (sameDraw ? draw.blue : NaN);
+
+    /* 旧版本只回了期号与奖级，没存号码：翻过期的记录靠归档补回来 */
+    if (!rReds) {
+      var arch = archivedDraw(item);
+      if (arch) {
+        rReds = arch.reds;
+        rBlue = arch.blue;
+      }
+    }
+
+    var hits = savedHits(item, rReds, rBlue);
+    /* 中奖记录却一个球都没撞上，说明补来的开奖号对不上（归档串期之类），
+       与其把整排球压暗，不如不标 */
+    if (hits && r.prizeName && !hits.blue && !hits.reds.some(Boolean)) hits = null;
 
     return {
       tone: r.prizeName ? "win" : "lose",
       text: r.prizeName || "未中奖",
       amount: Number(r.prizeAmount) || 0,
-      hits: savedHits(item, rReds, rBlue)
+      hits: hits
     };
   }
 
@@ -2031,7 +2164,7 @@ function savedOutcome(item) {
   if (!target) return { tone: "pending", text: "待确认", amount: 0, hits: null };
   if (!draw.date) return { tone: "pending", text: "待开奖", amount: 0, hits: null };
 
-  if (draw.date === target) {
+  if (sameDraw) {
     var drawReds = (draw.reds || []).map(function toNumber(text) { return parseInt(text, 10); });
     var drawBlue = parseInt(draw.blue, 10);
     var usable = drawReds.length === SSQ_RULES.redCount &&
@@ -2047,6 +2180,13 @@ function savedOutcome(item) {
       amount: prize.prizeAmount,
       hits: savedHits(item, drawReds, drawBlue)
     };
+  }
+
+  /* 这一期已经过去，手上只剩最新一期：用归档补判，判不出才标「已开奖」 */
+  var pastDraw = archivedDraw(item);
+  if (pastDraw) {
+    var prizeOld = judgeByDraw(item, pastDraw);
+    if (prizeOld) return prizeOld;
   }
 
   if (String(draw.date) > target) return { tone: "muted", text: "已开奖", amount: 0, hits: null };
@@ -2625,6 +2765,8 @@ function drawResultShouldBeOut(dateKey) {
 /**
  * 判奖后把期号回填到「我的号码」里对应的那条记录。
  * 收藏时还不知道期号，这里逐注补上，事后能对上账。
+ * 旧版本只回填了期号与奖级、没存开奖号，这种记录奖级已经冻结，
+ * 这里补的只是「中的是哪几个球」，不改奖级与金额。
  */
 function backfillSavedIssue(c) {
   var touched = false;
@@ -2633,10 +2775,17 @@ function backfillSavedIssue(c) {
     if (!ticket.result) return;
 
     state.savedNumbers.forEach(function fill(item) {
-      if (item.issue) return;
+      /* 已经有完整开奖号的不用再动 */
+      var complete = item.result &&
+        Array.isArray(item.result.drawReds) &&
+        item.result.drawReds.length === SSQ_RULES.redCount;
+      if (complete) return;
+      /* 已经对着别的期号结过账的，不要改判 */
+      if (item.issue && String(item.issue) !== String(ticket.result.issue)) return;
       if (item.dateKey !== c.dateKey) return;
       if ((item.reds || []).join(",") !== ticket.reds.join(",")) return;
       if (Number(item.blue) !== Number(ticket.blue)) return;
+
       item.issue = ticket.result.issue;
       item.drawDate = ticket.result.date;
       item.result = {
@@ -2973,6 +3122,8 @@ function applyDrawData(data, stale, meta) {
     pool: data.pool || 0
   };
   writeStorage(STORAGE_KEYS.lastDraw, state.lastDraw);
+  /* 到手就先记进归档：history.json 是定时生成的，可能还没跟上这一期 */
+  rememberDrawInArchive(state.lastDraw);
 
   if (sameNumbers) {
     renderDrawMeta();
@@ -3276,6 +3427,9 @@ function bootstrap() {
 
   bindEvents();
   refreshAll();
+  /* 归档先起个头：拿到后会给老记录补上中奖高亮，拿不到就算了 */
+  loadDrawArchive();
+  rememberDrawInArchive(state.lastDraw);
   renderSaved();
   renderLastDraw();
 

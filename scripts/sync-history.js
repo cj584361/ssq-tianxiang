@@ -42,9 +42,19 @@ function normalize(item) {
   var first = gradeOf(item.prizegrades, 1);
   var second = gradeOf(item.prizegrades, 2);
 
+  /* 开奖号码一起存：页面判断「我的号码」中奖时高亮哪几个球要用。
+     只在结果里没存过开奖号的旧记录才查，平时不读 */
+  var reds = String(item.red || "")
+    .split(",")
+    .map(function toNumber(text) { return parseInt(text, 10); })
+    .filter(function isNum(n) { return !isNaN(n); });
+  var blue = parseInt(item.blue, 10);
+
   return {
     issue: String(item.code || ""),
     date: String(item.date || "").replace(/\(.*\)$/, ""),
+    reds: reds,
+    blue: isNaN(blue) ? 0 : blue,
     pool: Number(item.poolmoney) || 0,
     sales: Number(item.sales) || 0,
     firstNum: first.num,
@@ -96,12 +106,16 @@ async function main() {
   }
 
   var previous = readExisting();
+  var prevLast = previous && Array.isArray(previous.items) && previous.items.length
+    ? previous.items[previous.items.length - 1]
+    : null;
   var same =
     previous && Array.isArray(previous.items) &&
     previous.items.length === items.length &&
-    previous.items[previous.items.length - 1].issue ===
-      items[items.length - 1].issue &&
-    previous.items[0].issue === items[0].issue;
+    prevLast.issue === items[items.length - 1].issue &&
+    previous.items[0].issue === items[0].issue &&
+    /* 旧版本没存号码，补过一次就不要再跳过 */
+    Array.isArray(prevLast.reds) && prevLast.reds.length === 6;
 
   if (same) {
     console.log("历史数据未变化（" + items.length + " 期），跳过写入");
